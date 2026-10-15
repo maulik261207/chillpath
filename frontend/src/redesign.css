@@ -289,3 +289,14 @@ button,a,input,select{max-width:100%}
 @media(max-width:560px){.map-location-fields{grid-template-columns:1fr}.map-location-arrow{display:none}.landing-nav .landing-links{display:none}.landing-nav-actions .button{padding:8px 12px!important;font-size:0.85rem!important}}
 .map-attribution{position:absolute;right:12px;bottom:8px;padding:3px 5px;background:#f5f1e9d9;color:#55564e;font-size:9px;text-decoration:none}
 .map-attribution:hover{text-decoration:underline}
+.map-frame{position:relative;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none}
+.map-frame svg{width:100%;height:100%;display:block;touch-action:none;cursor:grab;user-select:none;outline:none!important}
+.map-frame svg:focus{outline:none!important}
+.map-frame svg.is-dragging{cursor:grabbing!important}
+.map-frame image{pointer-events:none!important;user-select:none!important;-webkit-user-drag:none!important}
+.map-controls{position:absolute;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:10;pointer-events:auto}
+.map-controls button{width:38px;height:38px;display:grid;place-items:center;background:#faf8f1!important;color:#282820!important;border:1px solid #999282!important;border-radius:1px!important;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.12);transition:all .18s ease}
+.map-controls button:hover:not(:disabled){background:#f1eee5!important;border-color:#7a402d!important;color:#7a402d!important}
+.map-controls button:disabled{opacity:.35!important;cursor:not-allowed!important}
+.route-best-path{stroke:#5f6748!important;stroke-dasharray:1;stroke-dashoffset:1;animation:route-line-draw 1.3s cubic-bezier(.2,.8,.25,1) forwards}
+@keyframes route-line-draw{to{stroke-dashoffset:0}}
