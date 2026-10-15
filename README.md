@@ -12,7 +12,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. The demo includes the landing page, operations dashboard, searchable shipment list and detail, recovery suggestions, traceability export, and a deterministic scenario lab with offline buffering and a guided walkthrough.
+Open `http://localhost:5173`. The demo includes a Geoapify-backed landing-page route map, operations dashboard, connected engine control center, searchable shipment list and detail, recovery suggestions, traceability export, and a deterministic scenario lab with offline buffering and a guided walkthrough.
 
 Build and run the frontend tests:
 
@@ -44,7 +44,7 @@ pytest
 
 1. Start the API and register a development organization at `POST /v1/auth/register` using `/docs`.
 2. Copy the returned `organization_id`.
-3. Copy `frontend/.env.example` to `frontend/.env.local` and set `VITE_API_BASE_URL=http://localhost:8000/v1` and `VITE_ORGANIZATION_ID` to that UUID.
+3. Copy `frontend/.env.example` to `frontend/.env.local` and set `VITE_API_BASE_URL=http://localhost:8000` and `VITE_ORGANIZATION_ID` to that UUID.
 4. Restart the Vite server. The Shipments page can list and create shipments and policies. Shipment detail and recovery are API-backed.
 
 The API currently accepts organization IDs directly and the authentication token is a development placeholder. This is not production tenant authorization; do not expose it to untrusted users.
@@ -85,6 +85,8 @@ source. The frontend can call:
 - `POST /v1/maps/route` with two or more `{latitude, longitude}` waypoints and a transport mode.
 - `POST /v1/maps/reroute-options` with waypoints and multiple modes to compare alternatives.
 - `GET /v1/maps/modes` to populate the complete transport-mode selector.
+- `GET /v1/maps/tiles/{z}/{x}/{y}.png` to render Geoapify tiles without exposing the API key.
+- `GET /v1/engines/status` for the connected engine control center.
 
 The route endpoints return GeoJSON geometry, distance, duration, instructions, and the selected
 transport mode. Reroute options are ranked by duration and then distance. This ranking does not

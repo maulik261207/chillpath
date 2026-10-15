@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./chillpath.db"
     auto_create_schema: bool = True
     api_prefix: str = "/v1"
-    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173"
     geoapify_api_key: str | None = None
 
     @property

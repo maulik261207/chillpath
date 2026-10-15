@@ -1,4 +1,4 @@
-export const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+export const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000';
 export const organizationId = import.meta.env.VITE_ORGANIZATION_ID as string | undefined;
 export const connectedMode = Boolean(apiBase && organizationId);
 
@@ -48,4 +48,8 @@ export function getTransportModes() {
 
 export function autocompleteAddress(text: string) {
   return api<{ results: unknown[] }>(`/maps/autocomplete?text=${encodeURIComponent(text)}`);
+}
+
+export function mapTileUrl(z: number, x: number, y: number) {
+  return `${apiBase}/v1/maps/tiles/${z}/${x}/${y}.png`;
 }

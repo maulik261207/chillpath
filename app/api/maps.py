@@ -1,6 +1,6 @@
 import asyncio
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from app.core.config import get_settings
 from app.schemas.maps import RouteRequest, RerouteRequest
 from app.services.geoapify import GeoapifyClient, summarize_routes
@@ -36,6 +36,26 @@ def client() -> GeoapifyClient:
 @router.get("/modes")
 async def transport_modes():
     return {"items": TRANSPORT_MODES}
+
+@router.get("/tiles/{z}/{x}/{y}.png", response_class=Response)
+async def map_tile(z: int, x: int, y: int):
+    if not 0 <= z <= 20:
+        raise HTTPException(400, "invalid map zoom")
+    maximum = 2 ** z
+    if not 0 <= x < maximum or not 0 <= y < maximum:
+        raise HTTPException(400, "invalid map tile")
+    url = f"https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png"
+    try:
+        async with httpx.AsyncClient(timeout=15) as http:
+            result = await http.get(url, params={"apiKey": client().api_key})
+            result.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, "Geoapify map tile request failed") from exc
+    return Response(
+        content=result.content,
+        media_type=result.headers.get("content-type", "image/png"),
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 @router.get("/autocomplete")
 async def autocomplete(text: str = Query(min_length=2, max_length=200), limit: int = Query(5, ge=1, le=10)):
