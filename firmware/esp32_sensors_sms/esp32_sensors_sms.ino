@@ -76,7 +76,7 @@ const float  DEFAULT_TEMP_MAX_THRESHOLD   = 35.0;          // Celsius
 const float  DEFAULT_TEMP_MIN_THRESHOLD   = 2.0;           // Celsius (cold-chain low limit)
 const bool   DEFAULT_BUZZER_ENABLED       = true;          // Sound buzzer on alarm
 const bool   DEFAULT_DO_ALERT_ENABLED     = true;          // Trigger on DO pin change
-const char*  DEFAULT_PHONE_PRIMARY        = "+1234567890"; // E.164 format (+[CountryCode][Number])
+const char*  DEFAULT_PHONE_PRIMARY        = "+919557066830"; // E.164 format (+[CountryCode][Number])
 const char*  DEFAULT_PHONE_SECONDARY      = "";            // Optional 2nd contact
 const bool   DEFAULT_ENABLE_VOICE_CALL    = true;          // Place phone call on alert
 const unsigned long SMS_COOLDOWN_MS       = 60000;         // 60s cooldown between SMS
@@ -318,6 +318,10 @@ void loadConfiguration() {
   config.enableVoiceCall = prefs.getBool("voiceCall", DEFAULT_ENABLE_VOICE_CALL);
 
   String p1 = prefs.getString("p1", DEFAULT_PHONE_PRIMARY);
+  if (p1.length() == 0 || p1.indexOf("1234567890") != -1) {
+    p1 = DEFAULT_PHONE_PRIMARY; // "+919557066830"
+    prefs.putString("p1", p1);
+  }
   p1.toCharArray(config.phonePrimary, sizeof(config.phonePrimary));
 
   String p2 = prefs.getString("p2", DEFAULT_PHONE_SECONDARY);

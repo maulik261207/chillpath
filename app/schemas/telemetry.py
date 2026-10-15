@@ -32,5 +32,11 @@ class LiveTelemetryItem(BaseModel):
     alarm_active: bool | None = False
     battery_pct: float | None = None
     observed_at: datetime | None = None
-    source: str = "phone_ble_gateway"
+    source: str = "pc_usb_gateway"
+
+
+class SendSmsRequest(BaseModel):
+    phone_number: str = "+919557066830"
+    message: str
+
 

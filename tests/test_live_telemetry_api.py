@@ -56,3 +56,25 @@ def test_live_telemetry_flow_with_key():
     hist_res = client.get(f"/v1/telemetry/live/history?limit=5&api_key={API_KEY}")
     assert hist_res.status_code == 200
     assert hist_res.json()["count"] >= 1
+
+
+def test_sms_alert_endpoints():
+    # 1. Manual SMS dispatch endpoint with API Key
+    sms_res = client.post(
+        "/v1/telemetry/sms/send",
+        headers={"X-API-Key": API_KEY},
+        json={"phone_number": "+919557066830", "message": "Manual test alert"}
+    )
+    assert sms_res.status_code == 200
+    assert sms_res.json()["status"] == "ok"
+    assert sms_res.json()["dispatched"]["phone_number"] == "+919557066830"
+
+    # 2. Check outbox
+    outbox_res = client.get("/v1/telemetry/sms/outbox", headers={"X-API-Key": API_KEY})
+    assert outbox_res.status_code == 200
+    assert outbox_res.json()["count"] >= 1
+
+    # 3. Unauthorized SMS send
+    unauth = client.post("/v1/telemetry/sms/send", json={"message": "fail"})
+    assert unauth.status_code == 401
+

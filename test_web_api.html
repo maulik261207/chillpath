@@ -345,12 +345,23 @@
             <div><strong>Device:</strong> <span id="deviceId">esp32-s3-temp-01</span></div>
             <div><strong>Channel:</strong> USB Serial (COM11) -> Cloud</div>
             <div><strong>Security:</strong> API Key Authenticated</div>
+            <div><strong>Alert Recipient:</strong> <span style="color: #38bdf8; font-weight: bold;">+919557066830</span></div>
             <div><strong>Packet Latency:</strong> <span id="packetLatency">--</span></div>
           </div>
         </div>
 
-        <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; font-size: 0.8rem; color: var(--accent);">
-          💡 Tip: You can query this data on any external website using <code>fetch()</code> or by appending <code>?api_key=...</code> to the URL.
+        <div style="margin-top: 1rem; padding: 0.85rem; background: rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.25); border-radius: 8px;">
+          <div style="font-size: 0.8rem; font-weight: 600; color: #34d399; margin-bottom: 0.4rem; display: flex; align-items: center; justify-content: space-between;">
+            <span>📲 SMS Alerting (+919557066830)</span>
+            <span id="smsStatusBadge" style="font-size: 0.7rem; color: #94a3b8;">Ready</span>
+          </div>
+          <button class="btn" style="width: 100%; font-size: 0.8rem; padding: 0.5rem; background: #34d399; color: #064e3b;" onclick="sendTestSmsAlert()">
+            Send Immediate SMS Alert
+          </button>
+        </div>
+
+        <div style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; font-size: 0.8rem; color: var(--accent);">
+          💡 Automatically sends SMS to <code>+919557066830</code> when temp exceeds 35°C, drops below 2°C, or DO trips.
         </div>
       </div>
     </div>
@@ -365,17 +376,18 @@
         <button class="tab-btn active" onclick="switchTab('js')">JavaScript (fetch)</button>
         <button class="tab-btn" onclick="switchTab('curl')">cURL</button>
         <button class="tab-btn" onclick="switchTab('python')">Python</button>
+        <button class="tab-btn" onclick="switchTab('sms')">SMS API (+919557066830)</button>
       </div>
 
       <div id="tab-js">
         <pre><code><span class="comment">// 1. Fetch live telemetry using X-API-Key header</span>
-<span class="keyword">async function</span> <span class="fun">getTemperature</span>() {
-  <span class="keyword">const</span> res = <span class="keyword">await</span> <span class="fun">fetch</span>(<span class="string">'http://localhost:8000/v1/telemetry/live'</span>, {
+async function <span class="fun">getTemperature</span>() {
+  const res = await fetch(<span class="string">'http://localhost:8000/v1/telemetry/live'</span>, {
     headers: { <span class="string">'X-API-Key'</span>: <span class="string">'chillpath_live_secret_key'</span> }
   });
-  <span class="keyword">const</span> json = <span class="keyword">await</span> res.<span class="fun">json</span>();
-  console.<span class="fun">log</span>(<span class="string">'Temperature:'</span>, json.data.temperature_c, <span class="string">'°C'</span>);
-  <span class="keyword">return</span> json.data;
+  const json = await res.json();
+  console.log(<span class="string">'Temperature:'</span>, json.data.temperature_c, <span class="string">'°C'</span>);
+  return json.data;
 }
 
 <span class="comment">// 2. Or simply use the URL query parameter:</span>
@@ -392,7 +404,7 @@ curl "http://localhost:8000/v1/telemetry/live?api_key=chillpath_live_secret_key"
       </div>
 
       <div id="tab-python" style="display: none;">
-        <pre><code><span class="keyword">import</span> requests
+        <pre><code>import requests
 
 url = <span class="string">"http://localhost:8000/v1/telemetry/live"</span>
 headers = {<span class="string">"X-API-Key"</span>: <span class="string">"chillpath_live_secret_key"</span>}
@@ -400,10 +412,58 @@ headers = {<span class="string">"X-API-Key"</span>: <span class="string">"chillp
 data = requests.get(url, headers=headers).json()
 print(f<span class="string">"Current Temp: {data['data']['temperature_c']} °C"</span>)</code></pre>
       </div>
+
+      <div id="tab-sms" style="display: none;">
+        <pre><code><span class="comment">// Trigger an SMS to +919557066830 from any webpage</span>
+fetch(<span class="string">'http://localhost:8000/v1/telemetry/sms/send'</span>, {
+  method: <span class="string">'POST'</span>,
+  headers: {
+    <span class="string">'Content-Type'</span>: <span class="string">'application/json'</span>,
+    <span class="string">'X-API-Key'</span>: <span class="string">'chillpath_live_secret_key'</span>
+  },
+  body: JSON.stringify({
+    phone_number: <span class="string">'+919557066830'</span>,
+    message: <span class="string">'ChillPath Alert: Temperature threshold exceeded!'</span>
+  })
+});</code></pre>
+      </div>
     </div>
   </div>
 
   <script>
+    async function sendTestSmsAlert() {
+      const badge = document.getElementById('smsStatusBadge');
+      const key = document.getElementById('apiKey').value.trim();
+      const base = document.getElementById('apiUrl').value.trim().replace(/\/live$/, '');
+      badge.textContent = 'Sending...';
+      badge.style.color = '#fbbf24';
+
+      try {
+        const res = await fetch(`${base}/sms/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': key
+          },
+          body: JSON.stringify({
+            phone_number: '+919557066830',
+            message: 'ChillPath Alert: Test SMS alert to +919557066830. Temperature sensor is active and connected!'
+          })
+        });
+        if (res.ok) {
+          badge.textContent = 'Dispatched!';
+          badge.style.color = '#34d399';
+          alert('Alert SMS successfully triggered for +919557066830!');
+        } else {
+          badge.textContent = 'Failed';
+          badge.style.color = '#f87171';
+        }
+      } catch (err) {
+        badge.textContent = 'Error';
+        badge.style.color = '#f87171';
+      }
+    }
+
     async function fetchLiveTelemetry() {
       const url = document.getElementById('apiUrl').value.trim();
       const key = document.getElementById('apiKey').value.trim();

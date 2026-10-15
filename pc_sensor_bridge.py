@@ -173,16 +173,38 @@ def run_bridge(port: str | None, baud: int, api_url: str, api_key: str):
             time.sleep(2.0)
 
 
+def send_test_sms(api_url: str, api_key: str, phone: str = "+919557066830"):
+    base_url = api_url.rsplit("/live", 1)[0] + "/sms/send"
+    payload = {
+        "phone_number": phone,
+        "message": f"ChillPath Alert System: Live SMS test to {phone} successful!"
+    }
+    print(f"\n[BRIDGE] Sending immediate test SMS to {phone} via {base_url}...")
+    success, code, msg = upload_telemetry(payload, base_url, api_key)
+    if success:
+        print(f"[TEST SMS OK] SMS dispatched successfully to {phone}!\n")
+    else:
+        print(f"[TEST SMS ERROR] Failed to send SMS: {msg}\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description="ChillPath ESP32-S3 USB Serial to Cloud Web API Bridge")
-    parser.add_argument("--port", default=None, help=f"Serial COM port (default: auto-detected)")
+    parser.add_argument("--port", default=None, help="Serial COM port (default: auto-detected)")
     parser.add_argument("--baud", type=int, default=DEFAULT_BAUD, help=f"Serial baud rate (default: {DEFAULT_BAUD})")
     parser.add_argument("--url", default=DEFAULT_API_URL, help=f"Cloud API telemetry ingest URL (default: {DEFAULT_API_URL})")
     parser.add_argument("--key", default=DEFAULT_API_KEY, help="API Key for authenticated access to the Web API")
+    parser.add_argument("--send-test-sms", action="store_true", help="Send an immediate test SMS to +919557066830 and exit")
+    parser.add_argument("--phone", default="+919557066830", help="Recipient phone number (default: +919557066830)")
 
     args = parser.parse_args()
+
+    if args.send_test_sms:
+        send_test_sms(api_url=args.url, api_key=args.key, phone=args.phone)
+        return
+
     run_bridge(port=args.port, baud=args.baud, api_url=args.url, api_key=args.key)
 
 
 if __name__ == "__main__":
     main()
+
