@@ -68,13 +68,16 @@ async def ready() -> dict[str, str]:
     return {"status": "ok", "database": "ok"}
 
 
-@app.get("/gateway", tags=["gateway"])
-async def phone_bluetooth_gateway():
+@app.get("/live", tags=["dashboard"])
+@app.get("/dashboard", tags=["dashboard"])
+@app.get("/gateway", tags=["dashboard"])
+async def live_sensor_dashboard():
     from pathlib import Path
     from fastapi.responses import FileResponse, HTMLResponse
-    path = Path(__file__).resolve().parent.parent / "firmware" / "esp32_sensors_sms" / "web_bluetooth_dashboard.html"
+    path = Path(__file__).resolve().parent.parent / "test_web_api.html"
     if path.exists():
         return FileResponse(path, media_type="text/html")
-    return HTMLResponse("<h3>Gateway HTML not found</h3>", status_code=404)
+    return HTMLResponse("<h3>Dashboard HTML not found</h3>", status_code=404)
+
 
 
