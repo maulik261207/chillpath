@@ -8,6 +8,7 @@ from app.api.telemetry import router as telemetry_router
 from app.api.operations import router as operations_router
 from app.api.read_models import router as read_models_router
 from app.api.billing import router as billing_router
+from app.api.scenarios import router as scenarios_router
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name, version="0.1.0")
@@ -18,6 +19,7 @@ app.include_router(telemetry_router, prefix=settings.api_prefix)
 app.include_router(operations_router, prefix=settings.api_prefix)
 app.include_router(read_models_router, prefix=settings.api_prefix)
 app.include_router(billing_router, prefix=settings.api_prefix)
+app.include_router(scenarios_router, prefix=settings.api_prefix)
 
 
 @app.get("/health/live", tags=["health"])

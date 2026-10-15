@@ -3,6 +3,12 @@
 Milestone 0 provides a small FastAPI service scaffold. Product, tenant, telemetry, exposure,
 recovery, and billing domains are intentionally deferred to later milestones.
 
+The current local implementation now includes identity and tenant foundations, shipment and
+sensor records, duplicate-safe telemetry ingestion, an offline gateway spool, exposure and
+evidence classification, recovery recommendations, route timelines, mock usage billing, and
+seedable demo simulations. These are hackathon foundations and do not make product-safety or
+product-release decisions.
+
 ## Local setup
 
 1. Create a virtual environment and install dependencies: `python -m venv .venv` then
@@ -21,6 +27,10 @@ Run tests with `.venv\\Scripts\\python -m pytest`.
   first schema milestone.
 - `POST /v1/auth/register` creates a user, organization, and owner membership.
 - `POST /v1/auth/login` verifies credentials and returns a temporary bearer token placeholder.
+- `POST /v1/telemetry/batch` ingests bounded telemetry batches with duplicate/conflict results.
+- `POST /v1/simulations` runs a deterministic demo scenario.
+- `GET /v1/shipments/{id}/timeline` returns route-event history.
+- `POST /v1/billing/usage` records mock, deduplicated usage.
 
 The backend stores UTC timestamps and will use tenant-scoped, append-only evidence models as
 the domain milestones are implemented. It does not make product-safety or product-release
