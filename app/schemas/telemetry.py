@@ -38,5 +38,7 @@ class LiveTelemetryItem(BaseModel):
 class SendSmsRequest(BaseModel):
     phone_number: str = "+919557066830"
     message: str
+    fast2sms_key: str | None = None
+
 
 

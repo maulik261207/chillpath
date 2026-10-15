@@ -352,11 +352,19 @@
 
         <div style="margin-top: 1rem; padding: 0.85rem; background: rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.25); border-radius: 8px;">
           <div style="font-size: 0.8rem; font-weight: 600; color: #34d399; margin-bottom: 0.4rem; display: flex; align-items: center; justify-content: space-between;">
-            <span>📲 SMS Alerting (+919557066830)</span>
+            <span>📲 Real Carrier SMS (+919557066830)</span>
             <span id="smsStatusBadge" style="font-size: 0.7rem; color: #94a3b8;">Ready</span>
           </div>
+
+          <div style="margin-bottom: 0.6rem;">
+            <label style="font-size: 0.7rem; color: #94a3b8; display: block; margin-bottom: 0.25rem;">
+              Fast2SMS API Key (<a href="https://www.fast2sms.com/dev/bulkV2" target="_blank" style="color: #38bdf8;">get free key</a>):
+            </label>
+            <input type="password" id="fast2smsKey" placeholder="Paste Fast2SMS API Key here" style="width: 100%; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; color: #fff; padding: 0.4rem 0.6rem; font-size: 0.75rem; font-family: monospace; outline: none;">
+          </div>
+
           <button class="btn" style="width: 100%; font-size: 0.8rem; padding: 0.5rem; background: #34d399; color: #064e3b;" onclick="sendTestSmsAlert()">
-            Send Immediate SMS Alert
+            Send Real SMS to +919557066830
           </button>
         </div>
 
@@ -431,36 +439,70 @@ fetch(<span class="string">'http://localhost:8000/v1/telemetry/sms/send'</span>,
   </div>
 
   <script>
+    // Restore saved Fast2SMS key
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedFast = localStorage.getItem('fast2sms_key');
+      if (savedFast && document.getElementById('fast2smsKey')) {
+        document.getElementById('fast2smsKey').value = savedFast;
+      }
+    });
+
     async function sendTestSmsAlert() {
       const badge = document.getElementById('smsStatusBadge');
       const key = document.getElementById('apiKey').value.trim();
+      const fastKey = document.getElementById('fast2smsKey').value.trim();
       const base = document.getElementById('apiUrl').value.trim().replace(/\/live$/, '');
+      
+      if (fastKey) {
+        localStorage.setItem('fast2sms_key', fastKey);
+      }
+
       badge.textContent = 'Sending...';
       badge.style.color = '#fbbf24';
 
       try {
+        const payload = {
+          phone_number: '+919557066830',
+          message: 'ChillPath Alert: Real SMS alert test to +919557066830! Temperature monitor is active and connected.'
+        };
+        if (fastKey) {
+          payload.fast2sms_key = fastKey;
+        }
+
         const res = await fetch(`${base}/sms/send`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-API-Key': key
           },
-          body: JSON.stringify({
-            phone_number: '+919557066830',
-            message: 'ChillPath Alert: Test SMS alert to +919557066830. Temperature sensor is active and connected!'
-          })
+          body: JSON.stringify(payload)
         });
-        if (res.ok) {
-          badge.textContent = 'Dispatched!';
-          badge.style.color = '#34d399';
-          alert('Alert SMS successfully triggered for +919557066830!');
+        const json = await res.json();
+        
+        if (res.ok && json.dispatched) {
+          const d = json.dispatched;
+          if (d.delivered) {
+            badge.textContent = 'Delivered!';
+            badge.style.color = '#34d399';
+            alert('✅ Success! Real SMS dispatched to +919557066830 via Fast2SMS mobile carrier.');
+          } else if (d.provider === 'outbox_logger') {
+            badge.textContent = 'Key Needed';
+            badge.style.color = '#fbbf24';
+            alert('ℹ️ Fast2SMS key not provided: Message was logged to outbox.\n\nTo send a REAL SMS to your mobile phone:\n1. Get your free API key at https://www.fast2sms.com/dev/bulkV2\n2. Paste it into the "Fast2SMS API Key" box and click send!');
+          } else {
+            badge.textContent = 'Error';
+            badge.style.color = '#f87171';
+            alert('❌ Fast2SMS Carrier Error:\n' + (d.error || 'Failed to dispatch'));
+          }
         } else {
           badge.textContent = 'Failed';
           badge.style.color = '#f87171';
+          alert('❌ Request failed: ' + (json.message || res.statusText));
         }
       } catch (err) {
-        badge.textContent = 'Error';
+        badge.textContent = 'Network Error';
         badge.style.color = '#f87171';
+        alert('❌ Network Error: Could not connect to API server');
       }
     }
 

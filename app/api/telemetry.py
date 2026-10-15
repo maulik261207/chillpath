@@ -31,7 +31,7 @@ _last_auto_sms_time: float = 0.0
 SMS_ALERT_COOLDOWN_SEC = 60.0
 
 
-def dispatch_sms(phone_number: str, message: str) -> dict:
+def dispatch_sms(phone_number: str, message: str, fast2sms_key: str | None = None) -> dict:
     """Dispatches SMS alert using Fast2SMS, Twilio, or standard system outbox logger."""
     global _sms_outbox
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -40,12 +40,13 @@ def dispatch_sms(phone_number: str, message: str) -> dict:
         "phone_number": phone_number,
         "message": message,
         "provider": "outbox_logger",
-        "delivered": True,
+        "delivered": False,
+        "note": "Logged to local outbox. To send real SMS to mobile phone, provide Fast2SMS API Key.",
     }
 
-    # 1. Fast2SMS (popular for Indian numbers +91...)
-    fast2sms_key = os.getenv("FAST2SMS_API_KEY")
-    if fast2sms_key:
+    # 1. Fast2SMS (instant SMS to Indian numbers +91...)
+    api_key = fast2sms_key or os.getenv("FAST2SMS_API_KEY")
+    if api_key:
         clean_num = phone_number.replace("+91", "").replace("+", "").strip()
         payload = json.dumps({
             "route": "q",
@@ -58,18 +59,36 @@ def dispatch_sms(phone_number: str, message: str) -> dict:
             "https://www.fast2sms.com/dev/bulkV2",
             data=payload,
             headers={
-                "authorization": fast2sms_key,
+                "authorization": api_key,
                 "Content-Type": "application/json",
             },
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=5.0) as resp:
+            with urllib.request.urlopen(req, timeout=10.0) as resp:
+                resp_text = resp.read().decode("utf-8", errors="replace")
                 record["provider"] = "fast2sms"
-                record["response"] = resp.read().decode("utf-8", errors="replace")
-        except Exception as e:
-            record["error"] = str(e)
+                record["response"] = resp_text
+                try:
+                    resp_json = json.loads(resp_text)
+                    if resp_json.get("return") is True:
+                        record["delivered"] = True
+                        record["note"] = "Fast2SMS confirmed delivery to mobile carrier."
+                    else:
+                        record["delivered"] = False
+                        msg_val = resp_json.get("message")
+                        record["error"] = msg_val[0] if isinstance(msg_val, list) else str(msg_val)
+                except Exception:
+                    record["delivered"] = True
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8", errors="replace")
+            record["provider"] = "fast2sms"
             record["delivered"] = False
+            record["error"] = f"Fast2SMS HTTP {e.code}: {err_body}"
+        except Exception as e:
+            record["provider"] = "fast2sms"
+            record["delivered"] = False
+            record["error"] = str(e)
 
     # 2. Twilio (if configured)
     twilio_sid = os.getenv("TWILIO_ACCOUNT_SID")
@@ -201,7 +220,7 @@ async def send_manual_sms(
     _key: str = Depends(verify_api_key),
 ) -> dict:
     target = req.phone_number or DEFAULT_SMS_RECIPIENT
-    result = dispatch_sms(target, req.message)
+    result = dispatch_sms(target, req.message, fast2sms_key=req.fast2sms_key)
     return {"status": "ok", "dispatched": result}
 
 
