@@ -61,3 +61,7 @@ The API currently accepts organization IDs directly and the authentication token
 - `POST /v1/simulations` and mock usage billing endpoints.
 
 The service stores UTC event times and scopes records by organization ID. Synthetic demo behavior and API prototype boundaries are identified in the interface and documentation.
+
+## ESP32-S3 and sensor trust
+
+The backend also includes configurable sensor manifests and device boot sessions for the ESP32-S3 foundations. Unknown hardware remains marked `HARDWARE_TBD`; the prototype does not assume board model, GPIO assignment, calibration values, or vibration threshold. Sensor health, vibration, fusion, and route planning utilities are planning inputs only and do not claim live map, GPS, traffic, or obstacle verification. See [SENSOR_TRUST_M0_COMPATIBILITY.md](SENSOR_TRUST_M0_COMPATIBILITY.md) for known gaps.

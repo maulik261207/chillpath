@@ -24,3 +24,6 @@ class CheckpointCreate(BaseModel):
     organization_id: UUID
     sequence: int = Field(ge=1)
     label: str
+    transport_mode: str = "road"
+    obstacle_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    straightness_score: float = Field(default=1.0, ge=0.0, le=1.0)

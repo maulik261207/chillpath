@@ -61,4 +61,7 @@ class RouteCheckpoint(Base):
     sequence: Mapped[int] = mapped_column(Integer)
     label: Mapped[str] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(30), default="planned")
+    transport_mode: Mapped[str] = mapped_column(String(30), default="road")
+    obstacle_score: Mapped[float] = mapped_column(default=0.0)
+    straightness_score: Mapped[float] = mapped_column(default=1.0)
 

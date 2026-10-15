@@ -3,5 +3,6 @@ from app.models.shipping import ProductPolicy, RouteCheckpoint, Sensor, SensorAs
 from app.models.telemetry import TelemetryEvent
 from app.models.operations import OperatorAction, RouteEvent
 from app.models.billing import SubscriptionPlan, Subscription, UsageLedger
+from app.models.devices import DeviceBootSession, IoTDevice, SensorCapabilityManifest
 
-__all__ = ["Membership", "Organization", "User", "ProductPolicy", "RouteCheckpoint", "Sensor", "SensorAssignment", "Shipment", "TelemetryEvent", "OperatorAction", "RouteEvent", "SubscriptionPlan", "Subscription", "UsageLedger"]
+__all__ = ["Membership", "Organization", "User", "ProductPolicy", "RouteCheckpoint", "Sensor", "SensorAssignment", "Shipment", "TelemetryEvent", "OperatorAction", "RouteEvent", "SubscriptionPlan", "Subscription", "UsageLedger", "IoTDevice", "SensorCapabilityManifest", "DeviceBootSession"]
