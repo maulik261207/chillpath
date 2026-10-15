@@ -62,7 +62,12 @@ The API currently accepts organization IDs directly and the authentication token
 
 The service stores UTC event times and scopes records by organization ID. Synthetic demo behavior and API prototype boundaries are identified in the interface and documentation.
 
-## ESP32-S3 and sensor trust
+## ESP32-S3 hardware and firmware
+
+Firmware is located in [`firmware/esp32_sensors_sms/`](firmware/esp32_sensors_sms/):
+- **Temperature Sensor (Red board)**: `AO` -> GPIO 4, `DO` -> GPIO 5, `+` -> 3V3, `GND` -> GND.
+- **Active Buzzer (Black board)**: `S` -> GPIO 6, `middle pin` -> 3V3, `-` -> GND.
+- **GSM Modem (Optional)**: `TX` -> GPIO 18, `RX` -> GPIO 17.
 
 The backend includes configurable sensor manifests and device boot sessions for the ESP32-S3.
 Unknown hardware remains marked `HARDWARE_TBD`; no model, GPIO, calibration, or vibration
@@ -160,3 +165,4 @@ SQLite database, for example
 `DATABASE_URL=sqlite+aiosqlite:////private/tmp/chillpath-test.db pytest`.
 The older local `chillpath.db` may predate the current telemetry schema; schema
 migrations are not yet part of this prototype.
+
