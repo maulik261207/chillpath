@@ -8,7 +8,14 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
   if (!response.ok) {
-    const message = await response.text();
+    const body = await response.text();
+    let message = body;
+    try {
+      const parsed = JSON.parse(body) as { message?: string; detail?: string };
+      message = parsed.message ?? parsed.detail ?? body;
+    } catch {
+      // Keep plain-text API errors readable.
+    }
     throw new Error(message || `Request failed (${response.status})`);
   }
   return response.json() as Promise<T>;
