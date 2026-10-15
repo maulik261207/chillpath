@@ -17,6 +17,10 @@ class TelemetryEvent(Base):
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     temperature_c: Mapped[float] = mapped_column()
     humidity_pct: Mapped[float | None] = mapped_column(nullable=True)
+    vibration_rms_g: Mapped[float | None] = mapped_column(nullable=True)
+    vibration_peak_g: Mapped[float | None] = mapped_column(nullable=True)
+    vibration_sample_window_ms: Mapped[int | None] = mapped_column(nullable=True)
+    source: Mapped[str] = mapped_column(String(20), default="simulation")
     raw_payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
     payload_hash: Mapped[str] = mapped_column(String(64))
 

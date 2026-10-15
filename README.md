@@ -55,6 +55,19 @@ Run tests with `.venv\\Scripts\\python -m pytest`.
 To run the API and PostgreSQL together in containers, use `docker compose up --build`. The API
 is then available at `http://localhost:8000` and its OpenAPI UI at `http://localhost:8000/docs`.
 
+## ESP32-S3 and sensor trust
+
+The backend supports configurable sensor manifests for an ESP32-S3. Unknown hardware stays
+marked `HARDWARE_TBD`; no model, GPIO, calibration, or vibration threshold is assumed.
+
+- `app/models/devices.py`: devices, manifests, and boot sessions.
+- `app/api/devices.py`: device and manifest endpoints.
+- `app/services/sensor_trust.py`: health, vibration, fusion, and alert lifecycle engines.
+- `app/services/routing.py`: straight, low-obstacle planning across transport modes.
+- `SENSOR_TRUST_M0_COMPATIBILITY.md`: compatibility review and production gaps.
+
+Route scores are planning inputs and do not claim live map, GPS, traffic, or obstacle verification.
+
 ## Current endpoints
 
 - `GET /health/live` confirms the process is alive.

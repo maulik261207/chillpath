@@ -23,7 +23,8 @@ async def ingest_batch(batch: TelemetryBatch, db: AsyncSession = Depends(get_db)
         if existing:
             results.append({"device_event_id": item.device_event_id, "status": "duplicate" if existing.payload_hash == digest else "conflict"})
             continue
-        db.add(TelemetryEvent(**payload, raw_payload_json=payload, payload_hash=digest))
+        event_fields = {key: value for key, value in payload.items() if key != "metadata"}
+        db.add(TelemetryEvent(**event_fields, raw_payload_json=payload, payload_hash=digest))
         results.append({"device_event_id": item.device_event_id, "status": "accepted"})
     await db.commit()
     return {"results": results}

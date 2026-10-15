@@ -11,6 +11,10 @@ class TelemetryItem(BaseModel):
     observed_at: datetime
     temperature_c: float
     humidity_pct: float | None = None
+    vibration_rms_g: float | None = None
+    vibration_peak_g: float | None = None
+    vibration_sample_window_ms: int | None = None
+    source: str = "simulation"
     metadata: dict = Field(default_factory=dict)
 
 class TelemetryBatch(BaseModel):
