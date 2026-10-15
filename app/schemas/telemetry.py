@@ -31,6 +31,9 @@ class LiveTelemetryItem(BaseModel):
     buzzer_active: bool | None = False
     alarm_active: bool | None = False
     battery_pct: float | None = None
+    humidity_pct: float | None = None
+    dht_temp_c: float | None = None
+    dht_valid: bool | None = False
     observed_at: datetime | None = None
     source: str = "pc_usb_gateway"
 

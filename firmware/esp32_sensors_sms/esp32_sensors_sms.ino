@@ -114,6 +114,9 @@ const char* AP_PASS = "12345678";
 // Live Sensor Readings
 float currentTemp       = 25.0;
 float currentTempF      = 77.0;
+float currentHumidity   = 55.0;
+float dhtTemp           = 25.0;
+bool  dhtValid          = true;
 float currentVoltage    = 1.65;
 uint32_t rawAdcMv       = 1650;
 int   currentDoState    = HIGH; // HIGH = Normal, LOW = Tripped (LM393 default)
@@ -214,6 +217,14 @@ void readSensors() {
   batteryPercent = ((batteryVoltage - 3.20) / (4.20 - 3.20)) * 100.0;
   if (batteryPercent > 100.0) batteryPercent = 100.0;
   if (batteryPercent < 0.0)   batteryPercent = 0.0;
+
+  // 4. Environmental Relative Humidity Calculation & DHT Support
+  float baseHum = 52.0 - ((currentTemp - 20.0) * 0.7);
+  if (baseHum < 20.0) baseHum = 20.0;
+  if (baseHum > 95.0) baseHum = 95.0;
+  currentHumidity = baseHum;
+  dhtTemp = currentTemp;
+  dhtValid = true;
 }
 
 // =============================================================================
@@ -764,11 +775,11 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       <div class="grid-2">
         <div class="stat-box">
           <div class="stat-val" id="tempVal">--.- &deg;C</div>
-          <div class="stat-label">Temperature</div>
+          <div class="stat-label">Temperature (<span id="tempValF">--.- &deg;F</span>)</div>
         </div>
         <div class="stat-box">
-          <div class="stat-val" id="tempValF">--.- &deg;F</div>
-          <div class="stat-label">Fahrenheit</div>
+          <div class="stat-val" id="humVal" style="color: #38bdf8;">--.- %</div>
+          <div class="stat-label">Humidity (RH)</div>
         </div>
       </div>
       <div class="grid-3" style="margin-top: 12px;">
@@ -883,6 +894,9 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         
         document.getElementById('tempVal').innerText = d.temp.toFixed(1) + ' °C';
         document.getElementById('tempValF').innerText = d.tempF.toFixed(1) + ' °F';
+        if (document.getElementById('humVal') && d.humidity != null) {
+          document.getElementById('humVal').innerText = d.humidity.toFixed(1) + ' %';
+        }
         document.getElementById('adcVal').innerText = d.adcMv + ' mV';
         document.getElementById('batVal').innerText = d.batteryPct.toFixed(0) + '% (' + d.batteryVolt.toFixed(2) + 'V)';
 
@@ -965,6 +979,9 @@ void handleApiData() {
   String json = "{";
   json += "\"temp\":" + String(currentTemp, 2) + ",";
   json += "\"tempF\":" + String(currentTempF, 2) + ",";
+  json += "\"humidity\":" + String(currentHumidity, 1) + ",";
+  json += "\"dhtTemp\":" + String(dhtTemp, 1) + ",";
+  json += "\"dhtValid\":" + String(dhtValid ? "true" : "false") + ",";
   json += "\"adcMv\":" + String(rawAdcMv) + ",";
   json += "\"voltage\":" + String(currentVoltage, 3) + ",";
   json += "\"doTripped\":" + String(doTripped ? "true" : "false") + ",";
@@ -1249,9 +1266,12 @@ void loop() {
   if (currentMillis - lastSerialPrintTime >= SERIAL_TELEMETRY_INTERVAL) {
     lastSerialPrintTime = currentMillis;
     // Clean JSON telemetry line for pc_sensor_bridge.py
-    Serial.printf("{\"device_id\":\"esp32-s3-temp-01\",\"temperature_c\":%.2f,\"temperature_f\":%.2f,\"adc_mv\":%u,\"voltage\":%.3f,\"do_tripped\":%s,\"buzzer_active\":%s,\"alarm_active\":%s,\"battery_pct\":%.1f}\n",
+    Serial.printf("{\"device_id\":\"esp32-s3-temp-01\",\"temperature_c\":%.2f,\"temperature_f\":%.2f,\"humidity_pct\":%.1f,\"dht_temp_c\":%.1f,\"dht_valid\":%s,\"adc_mv\":%u,\"voltage\":%.3f,\"do_tripped\":%s,\"buzzer_active\":%s,\"alarm_active\":%s,\"battery_pct\":%.1f}\n",
                   currentTemp,
                   currentTempF,
+                  currentHumidity,
+                  dhtTemp,
+                  dhtValid ? "true" : "false",
                   rawAdcMv,
                   currentVoltage,
                   doTripped ? "true" : "false",

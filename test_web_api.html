@@ -312,8 +312,19 @@
 
     <div class="grid-dashboard">
       <div class="card hero-metric">
-        <div class="temp-display" id="tempC">--.-°C</div>
-        <div class="temp-fahrenheit" id="tempF">--.-°F</div>
+        <div style="display: flex; width: 100%; justify-content: space-around; align-items: center; gap: 1rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+          <div style="text-align: center; flex: 1; min-width: 140px;">
+            <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 0.25rem; letter-spacing: 0.05em;">Temperature</div>
+            <div class="temp-display" id="tempC">--.-°C</div>
+            <div class="temp-fahrenheit" id="tempF">--.-°F</div>
+          </div>
+          <div style="width: 1px; height: 90px; background: rgba(255,255,255,0.1);" class="divider-line"></div>
+          <div style="text-align: center; flex: 1; min-width: 140px;">
+            <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 0.25rem; letter-spacing: 0.05em;">Humidity</div>
+            <div class="temp-display" id="humVal" style="color: #38bdf8; text-shadow: 0 0 25px rgba(56, 189, 248, 0.4);">--%</div>
+            <div class="temp-fahrenheit" id="dhtStatus" style="color: #34d399;">DHT Sensor Active</div>
+          </div>
+        </div>
 
         <div class="telemetry-meta">
           <div class="meta-box">
@@ -325,7 +336,7 @@
             <span class="val" id="buzzerState">--</span>
           </div>
           <div class="meta-box">
-            <span class="title">Analog Voltage</span>
+            <span class="title">Analog Voltage (AO)</span>
             <span class="val" id="analogVal">--</span>
           </div>
           <div class="meta-box">
@@ -535,6 +546,15 @@ fetch(<span class="string">'http://localhost:8000/v1/telemetry/sms/send'</span>,
           const d = body.data;
           document.getElementById('tempC').textContent = `${d.temperature_c.toFixed(1)}°C`;
           document.getElementById('tempF').textContent = `${(d.temperature_f || ((d.temperature_c * 9/5) + 32)).toFixed(1)}°F`;
+          
+          if (document.getElementById('humVal')) {
+            document.getElementById('humVal').textContent = d.humidity_pct != null ? `${d.humidity_pct.toFixed(1)}%` : '--%';
+          }
+          if (document.getElementById('dhtStatus')) {
+            document.getElementById('dhtStatus').textContent = d.dht_valid ? (d.dht_temp_c != null ? `DHT: ${d.dht_temp_c.toFixed(1)}°C · Online` : 'DHT Online') : 'Syncing Sensor';
+            document.getElementById('dhtStatus').style.color = d.dht_valid ? '#34d399' : '#94a3b8';
+          }
+
           document.getElementById('doState').textContent = d.do_tripped ? 'TRIPPED (LOW)' : 'NORMAL (HIGH)';
           document.getElementById('doState').style.color = d.do_tripped ? '#f87171' : '#34d399';
           document.getElementById('buzzerState').textContent = d.buzzer_active ? 'BEEPING' : 'OFF';

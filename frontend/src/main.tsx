@@ -86,7 +86,7 @@ function Dashboard(){
     />
     <div className="metric-grid">
       <Metric icon={<Thermometer/>} label={isLive?'Live temperature':'Active shipments'} value={isLive&&liveTemp?liveTemp:String(seedShipments.length)} foot={isLive?'ESP32-S3 sensor':'Seeded demo shipments'} tone={isLive&&liveData&&liveData.temperature_c>35?'orange':'green'}/>
-      <Metric icon={<ShieldCheck/>} label={isLive?'Humidity':'Temperature OK'} value={isLive&&liveHum?liveHum:String(seedShipments.filter(x=>x.status==='In transit').length)} foot={isLive?'DHT sensor reading':'Inside the safe demo range'} tone="green"/>
+      <Metric icon={<ShieldCheck/>} label={isLive?'Humidity':'Temperature OK'} value={isLive?(liveHum??'--%'):String(seedShipments.filter(x=>x.status==='In transit').length)} foot={isLive?'DHT sensor reading':'Inside the safe demo range'} tone="green"/>
       <Metric icon={<AlertTriangle/>} label={isLive?'Alarm status':'Needs attention'} value={isLive?(liveData?.alarm_active?'Active':'Normal'):String(seedShipments.filter(x=>x.status!=='In transit').length+(s==='normal'?0:1))} foot={isLive?(liveData?.alarm_active?'Temperature alarm triggered':'All readings normal'):'Temperature or sensor review'} tone={isLive&&liveData?.alarm_active?'orange':'green'}/>
       <Metric icon={<Radio/>} label={isLive?'Connection':'Pending actions'} value={isLive?'Online':s==='normal'?'01':'02'} foot={isLive?`${liveResponse?.seconds_since_last_packet?.toFixed(1)}s latency`:'Operator approval required'} tone={isLive?'green':'purple'}/>
     </div>

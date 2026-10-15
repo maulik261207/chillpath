@@ -213,11 +213,11 @@
       <div class="grid-2">
         <div class="stat-box">
           <div class="stat-val" id="dispTemp">--.- &deg;C</div>
-          <div class="stat-label">Temperature</div>
+          <div class="stat-label">Temperature (<span id="dispTempF">--.- &deg;F</span>)</div>
         </div>
         <div class="stat-box">
-          <div class="stat-val" id="dispTempF">--.- &deg;F</div>
-          <div class="stat-label">Fahrenheit</div>
+          <div class="stat-val" id="dispHum" style="color: #38bdf8;">--.- %</div>
+          <div class="stat-label">Humidity (RH)</div>
         </div>
       </div>
       <div class="grid-3">
@@ -402,6 +402,10 @@
     function updateUiDisplay(d) {
       document.getElementById('dispTemp').innerText = d.temperature_c.toFixed(1) + ' °C';
       document.getElementById('dispTempF').innerText = (d.temperature_f || ((d.temperature_c * 9/5) + 32)).toFixed(1) + ' °F';
+      if (document.getElementById('dispHum')) {
+        const hum = d.humidity_pct != null ? d.humidity_pct : (d.humidity != null ? d.humidity : null);
+        document.getElementById('dispHum').innerText = hum != null ? hum.toFixed(1) + ' %' : '--.- %';
+      }
       document.getElementById('dispAo').innerText = (d.adc_mv || 0) + ' mV';
       document.getElementById('dispDo').innerHTML = d.do_tripped 
         ? '<span class="badge badge-danger">TRIPPED</span>' 
