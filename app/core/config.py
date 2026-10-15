@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     auto_create_schema: bool = True
     api_prefix: str = "/v1"
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    geoapify_api_key: str | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:

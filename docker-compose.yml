@@ -3,6 +3,7 @@ services:
     build: .
     environment:
       DATABASE_URL: postgresql+asyncpg://chillpath:chillpath@db:5432/chillpath
+      GEOAPIFY_API_KEY: ${GEOAPIFY_API_KEY}
     ports:
       - "8000:8000"
     depends_on:

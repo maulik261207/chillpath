@@ -64,4 +64,29 @@ The service stores UTC event times and scopes records by organization ID. Synthe
 
 ## ESP32-S3 and sensor trust
 
-The backend also includes configurable sensor manifests and device boot sessions for the ESP32-S3 foundations. Unknown hardware remains marked `HARDWARE_TBD`; the prototype does not assume board model, GPIO assignment, calibration values, or vibration threshold. Sensor health, vibration, fusion, and route planning utilities are planning inputs only and do not claim live map, GPS, traffic, or obstacle verification. See [SENSOR_TRUST_M0_COMPATIBILITY.md](SENSOR_TRUST_M0_COMPATIBILITY.md) for known gaps.
+The backend includes configurable sensor manifests and device boot sessions for the ESP32-S3.
+Unknown hardware remains marked `HARDWARE_TBD`; no model, GPIO, calibration, or vibration
+threshold is assumed.
+
+- `app/models/devices.py`: devices, manifests, and boot sessions.
+- `app/api/devices.py`: device and manifest endpoints.
+- `app/services/sensor_trust.py`: health, vibration, fusion, and alert lifecycle engines.
+- `app/services/routing.py`: straight, low-obstacle planning across transport modes.
+- `SENSOR_TRUST_M0_COMPATIBILITY.md`: compatibility review and production gaps.
+
+Route scores are planning inputs and do not claim live map, GPS, traffic, or obstacle verification.
+
+## Maps and rerouting
+
+Set `GEOAPIFY_API_KEY` in the backend `.env`; never place it in a `VITE_` variable or frontend
+source. The frontend can call:
+
+- `GET /v1/maps/autocomplete?text=...` for address suggestions.
+- `POST /v1/maps/route` with two or more `{latitude, longitude}` waypoints and a transport mode.
+- `POST /v1/maps/reroute-options` with waypoints and multiple modes to compare alternatives.
+- `GET /v1/maps/modes` to populate the complete transport-mode selector.
+
+The route endpoints return GeoJSON geometry, distance, duration, instructions, and the selected
+transport mode. Reroute options are ranked by duration and then distance. This ranking does not
+claim that roads are obstacle-free; verified live obstacle data would require an additional data
+source.

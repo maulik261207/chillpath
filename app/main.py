@@ -16,6 +16,7 @@ from app.api.billing import router as billing_router
 from app.api.scenarios import router as scenarios_router
 from app.api.recovery import router as recovery_router
 from app.api.devices import router as devices_router
+from app.api.maps import router as maps_router
 from app.db.base import Base
 from app.db.session import engine
 import app.models  # noqa: F401 — register every model in SQLAlchemy metadata.
@@ -44,6 +45,7 @@ app.include_router(billing_router, prefix=settings.api_prefix)
 app.include_router(scenarios_router, prefix=settings.api_prefix)
 app.include_router(recovery_router, prefix=settings.api_prefix)
 app.include_router(devices_router, prefix=settings.api_prefix)
+app.include_router(maps_router, prefix=settings.api_prefix)
 
 
 @app.get("/health/live", tags=["health"])
