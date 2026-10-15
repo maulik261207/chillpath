@@ -1,25 +1,38 @@
 /**
  * =============================================================================
- * Advanced ESP32-S3 Multi-Sensor Monitoring & Emergency Alert System
+ * ESP32-S3 Temperature Sensor & Active Buzzer Alarm System
  * =============================================================================
  * 
- * Features Included:
- *  1. Dual Sensors: DHT22/11 (Temperature) & MPU-6050 (3-Axis Accelerometer/Shock)
- *  2. Dual Phone Contacts: Primary and Secondary Emergency Numbers
- *  3. Two-Way Remote SMS Control: Control the ESP32 by texting it commands (STATUS, SET TEMP, etc.)
- *  4. Emergency Voice Calling: Dials your phone so it rings loudly during critical alerts
- *  5. Battery Voltage & Percentage Monitoring (Low battery SMS alerts)
- *  6. Online Backup Notifications: Optional Telegram & WhatsApp alerts via Wi-Fi
- *  7. Non-Volatile Storage (NVS): All thresholds and numbers persist across reboots
- *  8. Web Configuration Portal: Accessible via Smartphone / PC over Wi-Fi
- *  9. Serial Command Line Interface (CLI) for USB control
+ * Hardware Connections:
+ * 
+ * 1. Temperature Sensor Module (Red board with black bead thermistor):
+ *    - AO  -> ESP32-S3 GPIO 4 (ADC1 Channel 3 - Analog Voltage)
+ *    - GND -> ESP32-S3 GND
+ *    - +   -> ESP32-S3 3V3
+ *    - DO  -> ESP32-S3 GPIO 5 (Digital Threshold Comparator output)
+ * 
+ * 2. Active Buzzer Module (Black board):
+ *    - S   (Signal)     -> ESP32-S3 GPIO 6 (Active HIGH alarm trigger)
+ *    - middle pin (VCC) -> ESP32-S3 3V3
+ *    - -   (Ground)     -> ESP32-S3 GND
+ * 
+ * 3. Optional GSM Modem (SIM800L / SIM7600):
+ *    - TX  -> ESP32-S3 GPIO 18 (RX1)
+ *    - RX  -> ESP32-S3 GPIO 17 (TX1)
+ *    - GND -> ESP32-S3 GND
+ * 
+ * Features:
+ *  - Accurate Steinhart-Hart / Beta equation temperature calculation from AO
+ *  - Onboard hardware threshold detection from DO (LM393 potentiometer)
+ *  - Non-blocking pulsed active buzzer alarm with mute, test, and auto-silence
+ *  - Interactive Wi-Fi Web Dashboard with real-time telemetry (http://192.168.4.1)
+ *  - Two-way SMS commands (STATUS, SET TEMP, BUZZER, etc.)
+ *  - Automated SMS and emergency voice calls on temperature breach
+ *  - USB Serial CLI for configuration and debugging (115200 baud)
+ *  - NVS Flash persistent storage for all thresholds and settings
  */
 
 #include <Arduino.h>
-#include <Wire.h>
-#include <Adafruit_MPU6050.h>
-#include <Adafruit_Sensor.h>
-#include <DHT.h>
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Preferences.h>
@@ -29,27 +42,41 @@
 // =============================================================================
 // HARDWARE PIN DEFINITIONS (ESP32-S3)
 // =============================================================================
-#define PIN_I2C_SDA         8      // ESP32-S3 I2C Data (MPU-6050)
-#define PIN_I2C_SCL         9      // ESP32-S3 I2C Clock (MPU-6050)
-
-#define PIN_DHT_DATA        4      // DHT22/DHT11 Data Pin
-#define DHT_TYPE            DHT22  // Change to DHT11 if using DHT11
+#define PIN_TEMP_AO         4      // Analog output from Red Temp Sensor (AO)
+#define PIN_TEMP_DO         5      // Digital comparator output from Red Temp Sensor (DO)
+#define PIN_BUZZER          6      // Active Buzzer Signal (S)
 
 #define GSM_RX_PIN          18     // Connect to GSM Module TX
 #define GSM_TX_PIN          17     // Connect to GSM Module RX
 #define GSM_BAUD            9600   // SIM800L / SIM7600 standard baud rate
 
-#define PIN_BATTERY_ADC     1      // Analog ADC pin for Battery Voltage Divider (100k/100k)
+#define PIN_BATTERY_ADC     1      // Optional battery voltage divider (GPIO 1)
+
+// Buzzer active polarity (standard active buzzer modules trigger on HIGH)
+#define BUZZER_ACTIVE_LEVEL HIGH
+#define BUZZER_IDLE_LEVEL   LOW
+
+// =============================================================================
+// THERMISTOR (NTC) CONSTANTS
+// =============================================================================
+// Standard 10k NTC thermistor parameters
+const float NTC_NOMINAL_R     = 10000.0; // 10k ohms at 25°C
+const float NTC_NOMINAL_T     = 25.0;    // 25°C
+const float NTC_B_COEFFICIENT = 3950.0;  // Typical Beta value
+const float SERIES_RESISTOR   = 10000.0; // 10k fixed divider resistor
+const float VCC_VOLTAGE       = 3.3;     // Supply voltage (3.3V)
 
 // =============================================================================
 // DEFAULT FACTORY CONFIGURATION
 // =============================================================================
-const float  DEFAULT_TEMP_MAX_THRESHOLD   = 40.0;          // Celsius
-const float  DEFAULT_ACCEL_MAX_THRESHOLD  = 1.50;          // G-Force (Earth = 1.0G)
+const float  DEFAULT_TEMP_MAX_THRESHOLD   = 35.0;          // Celsius
+const float  DEFAULT_TEMP_MIN_THRESHOLD   = 2.0;           // Celsius (cold-chain low limit)
+const bool   DEFAULT_BUZZER_ENABLED       = true;          // Sound buzzer on alarm
+const bool   DEFAULT_DO_ALERT_ENABLED     = true;          // Trigger on DO pin change
 const char*  DEFAULT_PHONE_PRIMARY        = "+1234567890"; // E.164 format (+[CountryCode][Number])
 const char*  DEFAULT_PHONE_SECONDARY      = "";            // Optional 2nd contact
 const bool   DEFAULT_ENABLE_VOICE_CALL    = true;          // Place phone call on alert
-const unsigned long SMS_COOLDOWN_MS       = 60000;         // 60 sec cooldown between SMS
+const unsigned long SMS_COOLDOWN_MS       = 60000;         // 60s cooldown between SMS
 const float  BATTERY_LOW_THRESHOLD_PCT    = 20.0;          // Battery alert trigger
 
 // =============================================================================
@@ -57,7 +84,9 @@ const float  BATTERY_LOW_THRESHOLD_PCT    = 20.0;          // Battery alert trig
 // =============================================================================
 struct Config {
   float tempMax;
-  float accelMax;
+  float tempMin;
+  bool  buzzerEnabled;
+  bool  doAlertEnabled;
   char  phonePrimary[24];
   char  phoneSecondary[24];
   bool  enableVoiceCall;
@@ -70,20 +99,29 @@ struct Config {
 // =============================================================================
 // GLOBAL OBJECTS & STATE
 // =============================================================================
-Adafruit_MPU6050 mpu;
-DHT dht(PIN_DHT_DATA, DHT_TYPE);
 HardwareSerial gsmSerial(1); // Hardware UART1
 Preferences prefs;
 WebServer server(80);
 
-const char* AP_SSID = "ESP32-Sensor-Monitor";
+const char* AP_SSID = "ESP32-Temp-Monitor";
 const char* AP_PASS = "12345678";
 
-// Sensor readings
-float currentTemp       = 0.0;
-float currentHumidity   = 0.0;
-float currentTotalG     = 1.0;
-float accelX = 0.0, accelY = 0.0, accelZ = 0.0;
+// Live Sensor Readings
+float currentTemp       = 25.0;
+float currentTempF      = 77.0;
+float currentVoltage    = 1.65;
+uint32_t rawAdcMv       = 1650;
+int   currentDoState    = HIGH; // HIGH = Normal, LOW = Tripped (LM393 default)
+bool  doTripped         = false;
+bool  sensorValid       = false;
+
+// Alarm & Buzzer State Machine
+bool  alarmActive       = false;
+bool  buzzerMuted       = false;
+bool  buzzerTestActive  = false;
+unsigned long buzzerTestEndTime = 0;
+unsigned long lastBuzzerToggleTime = 0;
+bool  buzzerOutputState = false;
 
 // Battery readings
 float batteryVoltage    = 4.2;
@@ -91,15 +129,12 @@ float batteryPercent    = 100.0;
 
 // System Timers
 unsigned long lastSensorReadTime = 0;
-const unsigned long SENSOR_INTERVAL = 1000; // 1 second
+const unsigned long SENSOR_INTERVAL = 500; // Read every 500ms
 
 unsigned long lastSmsSentTime = 0;
 unsigned long lastBatteryAlertTime = 0;
 
-bool mpuAvailable = false;
-bool dhtAvailable = false;
-
-// Incoming GSM buffer for two-way SMS parsing
+// Incoming GSM buffer for two-way SMS
 String gsmRxBuffer = "";
 
 // Forward declarations
@@ -109,30 +144,138 @@ bool sendSMS(const char* phoneNumber, const String& message);
 void triggerEmergencyAlert(const String& reason);
 void makeEmergencyPhoneCall(const char* phoneNumber);
 void sendTelegramAlert(const String& message);
+String urlEncode(const String& str);
+void setBuzzerHardware(bool active);
+void updateBuzzerStateMachine();
 
 // =============================================================================
-// BATTERY MONITORING
+// NTC TEMPERATURE CALCULATION
 // =============================================================================
-void readBattery() {
-  // Read voltage divider: 2x 100k resistors divide voltage by 2
-  // Max ADC input on ESP32-S3 is 3.3V, so 4.2V battery becomes 2.1V at ADC pin
-  uint32_t rawMv = analogReadMilliVolts(PIN_BATTERY_ADC);
-  batteryVoltage = (rawMv * 2.0) / 1000.0; // In Volts
+float calculateTemperature(float voltage) {
+  // Prevent division by zero / negative resistance
+  if (voltage <= 0.05 || voltage >= (VCC_VOLTAGE - 0.05)) {
+    return -999.0; // Sensor disconnected or shorted
+  }
 
-  // Estimate percentage: 3.2V (Empty) to 4.2V (Full)
+  // Calculate NTC resistance.
+  // Standard red sensor module: AO is between NTC and 10k resistor.
+  // When temperature rises, NTC resistance decreases.
+  float resistance = SERIES_RESISTOR * (voltage / (VCC_VOLTAGE - voltage));
+  if (resistance <= 0) return -999.0;
+
+  // Steinhart-Hart / Beta model:
+  // 1/T = 1/T0 + (1/B) * ln(R/R0)
+  float steinhart = resistance / NTC_NOMINAL_R;       // (R / R0)
+  steinhart = log(steinhart);                         // ln(R / R0)
+  steinhart /= NTC_B_COEFFICIENT;                     // 1/B * ln(R/R0)
+  steinhart += 1.0 / (NTC_NOMINAL_T + 273.15);        // + (1 / T0)
+  steinhart = 1.0 / steinhart;                        // Invert -> Kelvin
+  float tempC = steinhart - 273.15;                   // Convert to Celsius
+
+  return tempC;
+}
+
+void readSensors() {
+  // 1. Read Analog Pin (AO on GPIO 4)
+  rawAdcMv = analogReadMilliVolts(PIN_TEMP_AO);
+  currentVoltage = rawAdcMv / 1000.0;
+
+  float t = calculateTemperature(currentVoltage);
+  if (t > -50.0 && t < 125.0) {
+    currentTemp = t;
+    currentTempF = (t * 9.0 / 5.0) + 32.0;
+    sensorValid = true;
+  } else {
+    sensorValid = false;
+  }
+
+  // 2. Read Digital Pin (DO on GPIO 5)
+  // LM393 pulls LOW when potentiometer threshold is crossed
+  currentDoState = digitalRead(PIN_TEMP_DO);
+  doTripped = (currentDoState == LOW);
+
+  // 3. Read Battery Voltage
+  uint32_t batMv = analogReadMilliVolts(PIN_BATTERY_ADC);
+  batteryVoltage = (batMv * 2.0) / 1000.0;
   batteryPercent = ((batteryVoltage - 3.20) / (4.20 - 3.20)) * 100.0;
   if (batteryPercent > 100.0) batteryPercent = 100.0;
   if (batteryPercent < 0.0)   batteryPercent = 0.0;
+}
 
-  // Check low battery warning
-  if (batteryPercent <= BATTERY_LOW_THRESHOLD_PCT) {
-    unsigned long now = millis();
-    if (now - lastBatteryAlertTime > 3600000 || lastBatteryAlertTime == 0) { // Max once per hour
-      lastBatteryAlertTime = now;
-      String lowBatMsg = "WARNING: ESP32-S3 Battery Low!\nVoltage: " + 
-                         String(batteryVoltage, 2) + "V (" + String(batteryPercent, 0) + "%)\nPlease recharge.";
-      sendSMS(config.phonePrimary, lowBatMsg);
+// =============================================================================
+// ACTIVE BUZZER CONTROL & SOUND PATTERNS
+// =============================================================================
+void setBuzzerHardware(bool active) {
+  buzzerOutputState = active;
+  digitalWrite(PIN_BUZZER, active ? BUZZER_ACTIVE_LEVEL : BUZZER_IDLE_LEVEL);
+}
+
+void startBuzzerTest(unsigned long durationMs = 3000) {
+  buzzerTestActive = true;
+  buzzerTestEndTime = millis() + durationMs;
+  setBuzzerHardware(true);
+  Serial.println("[BUZZER] Manual buzzer test initiated.");
+}
+
+void updateBuzzerStateMachine() {
+  unsigned long now = millis();
+
+  // Priority 1: Manual test mode active
+  if (buzzerTestActive) {
+    if (now >= buzzerTestEndTime) {
+      buzzerTestActive = false;
+      setBuzzerHardware(false);
+      Serial.println("[BUZZER] Manual buzzer test completed.");
+    } else {
+      setBuzzerHardware(true);
     }
+    return;
+  }
+
+  // Priority 2: Alarm condition active and buzzer enabled & not muted
+  if (alarmActive && config.buzzerEnabled && !buzzerMuted) {
+    // Pulsing urgent alarm beep: 200ms ON, 200ms OFF
+    const unsigned long BEEP_INTERVAL = 200;
+    if (now - lastBuzzerToggleTime >= BEEP_INTERVAL) {
+      lastBuzzerToggleTime = now;
+      setBuzzerHardware(!buzzerOutputState);
+    }
+  } else {
+    // Normal / Muted / Silent state
+    if (buzzerOutputState) {
+      setBuzzerHardware(false);
+    }
+  }
+}
+
+// =============================================================================
+// THRESHOLD EVALUATION & ALERTS
+// =============================================================================
+void evaluateThresholds() {
+  bool highTempBreach = sensorValid && (currentTemp >= config.tempMax);
+  bool lowTempBreach  = sensorValid && (currentTemp <= config.tempMin);
+  bool doBreach       = config.doAlertEnabled && doTripped;
+
+  bool wasAlarm = alarmActive;
+  alarmActive = highTempBreach || lowTempBreach || doBreach;
+
+  if (alarmActive && !wasAlarm) {
+    String reason = "";
+    if (highTempBreach) {
+      reason += "HIGH TEMP ALARM (" + String(currentTemp, 1) + "°C >= " + String(config.tempMax, 1) + "°C)\n";
+    }
+    if (lowTempBreach) {
+      reason += "LOW TEMP ALARM (" + String(currentTemp, 1) + "°C <= " + String(config.tempMin, 1) + "°C)\n";
+    }
+    if (doBreach) {
+      reason += "HARDWARE COMPARATOR TRIGGERED (DO Pin 5 = LOW)\n";
+    }
+
+    Serial.printf("\n*** [ALARM DETECTED] ***\n%s", reason.c_str());
+    triggerEmergencyAlert(reason);
+  } else if (!alarmActive && wasAlarm) {
+    Serial.println("[ALARM CLEARED] Temperature returned within normal limits.");
+    buzzerMuted = false; // Reset mute when condition clears
   }
 }
 
@@ -142,7 +285,9 @@ void readBattery() {
 void loadConfiguration() {
   prefs.begin("sensor_cfg", false);
   config.tempMax = prefs.getFloat("tempMax", DEFAULT_TEMP_MAX_THRESHOLD);
-  config.accelMax = prefs.getFloat("accelMax", DEFAULT_ACCEL_MAX_THRESHOLD);
+  config.tempMin = prefs.getFloat("tempMin", DEFAULT_TEMP_MIN_THRESHOLD);
+  config.buzzerEnabled = prefs.getBool("buzzEn", DEFAULT_BUZZER_ENABLED);
+  config.doAlertEnabled = prefs.getBool("doEn", DEFAULT_DO_ALERT_ENABLED);
   config.enableVoiceCall = prefs.getBool("voiceCall", DEFAULT_ENABLE_VOICE_CALL);
 
   String p1 = prefs.getString("p1", DEFAULT_PHONE_PRIMARY);
@@ -162,12 +307,13 @@ void loadConfiguration() {
 
   String tgChat = prefs.getString("tgChat", "");
   tgChat.toCharArray(config.telegramChatId, sizeof(config.telegramChatId));
-
   prefs.end();
 
   Serial.println("\n[NVS] Configuration Loaded:");
-  Serial.printf(" - Temp Threshold     : %.2f *C\n", config.tempMax);
-  Serial.printf(" - Accel Threshold    : %.2f G\n", config.accelMax);
+  Serial.printf(" - Temp Max Threshold : %.1f °C\n", config.tempMax);
+  Serial.printf(" - Temp Min Threshold : %.1f °C\n", config.tempMin);
+  Serial.printf(" - Buzzer Enabled     : %s\n", config.buzzerEnabled ? "YES" : "NO");
+  Serial.printf(" - DO Alert Enabled   : %s\n", config.doAlertEnabled ? "YES" : "NO");
   Serial.printf(" - Primary Phone      : %s\n", config.phonePrimary);
   Serial.printf(" - Secondary Phone    : %s\n", config.phoneSecondary);
   Serial.printf(" - Voice Calling      : %s\n", config.enableVoiceCall ? "ENABLED" : "DISABLED");
@@ -176,7 +322,9 @@ void loadConfiguration() {
 void saveConfiguration() {
   prefs.begin("sensor_cfg", false);
   prefs.putFloat("tempMax", config.tempMax);
-  prefs.putFloat("accelMax", config.accelMax);
+  prefs.putFloat("tempMin", config.tempMin);
+  prefs.putBool("buzzEn", config.buzzerEnabled);
+  prefs.putBool("doEn", config.doAlertEnabled);
   prefs.putBool("voiceCall", config.enableVoiceCall);
   prefs.putString("p1", config.phonePrimary);
   prefs.putString("p2", config.phoneSecondary);
@@ -191,7 +339,9 @@ void saveConfiguration() {
 
 void resetToDefaults() {
   config.tempMax = DEFAULT_TEMP_MAX_THRESHOLD;
-  config.accelMax = DEFAULT_ACCEL_MAX_THRESHOLD;
+  config.tempMin = DEFAULT_TEMP_MIN_THRESHOLD;
+  config.buzzerEnabled = DEFAULT_BUZZER_ENABLED;
+  config.doAlertEnabled = DEFAULT_DO_ALERT_ENABLED;
   config.enableVoiceCall = DEFAULT_ENABLE_VOICE_CALL;
   strncpy(config.phonePrimary, DEFAULT_PHONE_PRIMARY, sizeof(config.phonePrimary));
   strncpy(config.phoneSecondary, DEFAULT_PHONE_SECONDARY, sizeof(config.phoneSecondary));
@@ -200,27 +350,25 @@ void resetToDefaults() {
   config.telegramToken[0] = '\0';
   config.telegramChatId[0] = '\0';
   saveConfiguration();
-  Serial.println("[NVS] Reset to default thresholds complete!");
+  Serial.println("[NVS] Reset to default settings complete!");
 }
 
 // =============================================================================
-// GSM ENGINE & EMERGENCY CALL / SMS
+// GSM ENGINE & EMERGENCY DISPATCH
 // =============================================================================
 void initGSM() {
   gsmSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX_PIN, GSM_TX_PIN);
-  delay(1000);
-  
-  Serial.println("[GSM] Initializing modem...");
+  delay(500);
+  Serial.println("[GSM] Initializing modem on GPIO 18/17...");
   gsmSerial.println("AT");
-  delay(200);
+  delay(150);
   gsmSerial.println("ATE0");            // Echo OFF
-  delay(200);
+  delay(150);
   gsmSerial.println("AT+CMGF=1");       // Text SMS mode
-  delay(200);
-  // Route incoming SMS directly to Serial (+CMT indication)
-  gsmSerial.println("AT+CNMI=2,2,0,0,0");
-  delay(200);
-  Serial.println("[GSM] Modem ready for Two-Way SMS and Calls.");
+  delay(150);
+  gsmSerial.println("AT+CNMI=2,2,0,0,0"); // Direct routing of incoming SMS
+  delay(150);
+  Serial.println("[GSM] Modem ready.");
 }
 
 bool sendSMS(const char* phoneNumber, const String& message) {
@@ -228,20 +376,20 @@ bool sendSMS(const char* phoneNumber, const String& message) {
 
   Serial.printf("[GSM] Sending SMS to %s...\n", phoneNumber);
   gsmSerial.println("AT+CMGF=1");
-  delay(200);
+  delay(150);
   
   gsmSerial.print("AT+CMGS=\"");
   gsmSerial.print(phoneNumber);
   gsmSerial.println("\"");
-  delay(300);
+  delay(250);
 
   gsmSerial.print(message);
   delay(100);
-  gsmSerial.write(26); // ASCII 26: Ctrl+Z
+  gsmSerial.write(26); // Ctrl+Z
 
   unsigned long start = millis();
   bool success = false;
-  while (millis() - start < 6000) {
+  while (millis() - start < 5000) {
     if (gsmSerial.available()) {
       String response = gsmSerial.readString();
       if (response.indexOf("OK") != -1 || response.indexOf("+CMGS") != -1) {
@@ -255,49 +403,47 @@ bool sendSMS(const char* phoneNumber, const String& message) {
 
 void makeEmergencyPhoneCall(const char* phoneNumber) {
   if (strlen(phoneNumber) < 5) return;
-  Serial.printf("[GSM] Placing Emergency Phone Call to %s...\n", phoneNumber);
+  Serial.printf("[GSM] Dialing Emergency Phone Call to %s...\n", phoneNumber);
 
-  // Send ATD command to dial number
   gsmSerial.print("ATD");
   gsmSerial.print(phoneNumber);
-  gsmSerial.println(";"); // Note semicolon for voice call
+  gsmSerial.println(";"); // Voice call requires semicolon
 
-  // Ring the phone for 25 seconds
-  delay(25000);
+  delay(25000); // Ring for 25 seconds
 
-  // Hang up call
-  gsmSerial.println("ATH");
-  Serial.println("[GSM] Call terminated (ATH).");
+  gsmSerial.println("ATH"); // Hang up
+  Serial.println("[GSM] Call ended.");
 }
 
 void triggerEmergencyAlert(const String& reason) {
   unsigned long now = millis();
   if (now - lastSmsSentTime < SMS_COOLDOWN_MS && lastSmsSentTime != 0) {
-    Serial.println("[COOLDOWN] Alert triggered but suppressed by SMS cooldown.");
+    Serial.println("[COOLDOWN] SMS alert suppressed by cooldown window.");
     return;
   }
   lastSmsSentTime = now;
 
-  String alertMsg = "EMERGENCY ALERT: ESP32-S3\n" + reason + "\n";
-  alertMsg += "Temp: " + String(currentTemp, 1) + "C (Limit: " + String(config.tempMax, 1) + "C)\n";
-  alertMsg += "Accel: " + String(currentTotalG, 2) + "G (Limit: " + String(config.accelMax, 2) + "G)\n";
-  alertMsg += "Battery: " + String(batteryVoltage, 2) + "V (" + String(batteryPercent, 0) + "%)\n";
+  String alertMsg = "ALARM: ESP32-S3 Temperature Alert!\n" + reason;
+  alertMsg += "Current Temp: " + String(currentTemp, 1) + "C (" + String(currentTempF, 1) + "F)\n";
+  alertMsg += "Limits: " + String(config.tempMin, 1) + "C to " + String(config.tempMax, 1) + "C\n";
+  alertMsg += "DO Pin 5: " + String(doTripped ? "TRIGGERED" : "NORMAL") + "\n";
+  alertMsg += "Battery: " + String(batteryPercent, 0) + "% (" + String(batteryVoltage, 2) + "V)";
 
-  Serial.println("\n*** DISPATCHING EMERGENCY ALERTS ***");
+  Serial.println("\n*** DISPATCHING EMERGENCY NOTIFICATIONS ***");
 
   // 1. Send SMS to Primary Contact
   sendSMS(config.phonePrimary, alertMsg);
 
-  // 2. Send SMS to Secondary Contact (if configured)
+  // 2. Send SMS to Secondary Contact
   if (strlen(config.phoneSecondary) >= 5) {
     delay(1000);
     sendSMS(config.phoneSecondary, alertMsg);
   }
 
-  // 3. Send Telegram Alert if Wi-Fi connected
+  // 3. Telegram notification if Wi-Fi connected
   sendTelegramAlert(alertMsg);
 
-  // 4. Place Emergency Voice Call if enabled
+  // 4. Voice Call if enabled
   if (config.enableVoiceCall) {
     delay(1000);
     makeEmergencyPhoneCall(config.phonePrimary);
@@ -305,7 +451,7 @@ void triggerEmergencyAlert(const String& reason) {
 }
 
 // =============================================================================
-// TWO-WAY REMOTE SMS COMMAND PROCESSOR
+// TWO-WAY REMOTE SMS COMMANDS
 // =============================================================================
 void processIncomingSMS(const String& sender, String body) {
   body.trim();
@@ -316,11 +462,11 @@ void processIncomingSMS(const String& sender, String body) {
 
   if (upperBody == "STATUS") {
     String reply = "ESP32-S3 Status:\n";
-    reply += "Temp: " + String(currentTemp, 1) + "C\n";
-    reply += "Accel: " + String(currentTotalG, 2) + "G\n";
-    reply += "Battery: " + String(batteryPercent, 0) + "% (" + String(batteryVoltage, 2) + "V)\n";
-    reply += "Limits: Temp " + String(config.tempMax, 1) + "C | Accel " + String(config.accelMax, 2) + "G\n";
-    reply += "Call Alert: " + String(config.enableVoiceCall ? "ON" : "OFF");
+    reply += "Temp: " + String(currentTemp, 1) + "C (" + String(currentTempF, 1) + "F)\n";
+    reply += "DO Pin 5: " + String(doTripped ? "TRIGGERED" : "NORMAL") + "\n";
+    reply += "Buzzer: " + String(alarmActive ? (buzzerMuted ? "MUTED" : "ALARM BEEPING") : "IDLE") + "\n";
+    reply += "Limits: " + String(config.tempMin, 1) + "C to " + String(config.tempMax, 1) + "C\n";
+    reply += "Battery: " + String(batteryPercent, 0) + "% (" + String(batteryVoltage, 2) + "V)";
     sendSMS(sender.c_str(), reply);
   }
   else if (upperBody.startsWith("SET TEMP ")) {
@@ -333,26 +479,38 @@ void processIncomingSMS(const String& sender, String body) {
       sendSMS(sender.c_str(), "ERR: Invalid temperature value.");
     }
   }
-  else if (upperBody.startsWith("SET ACCEL ")) {
-    float val = upperBody.substring(10).toFloat();
-    if (val > 0.1 && val < 16.0) {
-      config.accelMax = val;
+  else if (upperBody.startsWith("SET MIN ")) {
+    float val = upperBody.substring(8).toFloat();
+    if (val > -40.0 && val < 125.0) {
+      config.tempMin = val;
       saveConfiguration();
-      sendSMS(sender.c_str(), "OK: Max Accel threshold set to " + String(config.accelMax, 2) + "G");
+      sendSMS(sender.c_str(), "OK: Min Temp threshold set to " + String(config.tempMin, 1) + "C");
     } else {
-      sendSMS(sender.c_str(), "ERR: Invalid acceleration value (0.1 to 16.0 G).");
+      sendSMS(sender.c_str(), "ERR: Invalid temperature value.");
     }
+  }
+  else if (upperBody == "MUTE") {
+    buzzerMuted = true;
+    sendSMS(sender.c_str(), "OK: Buzzer alarm muted.");
+  }
+  else if (upperBody == "UNMUTE") {
+    buzzerMuted = false;
+    sendSMS(sender.c_str(), "OK: Buzzer alarm unmuted.");
+  }
+  else if (upperBody == "BUZZER TEST") {
+    startBuzzerTest(3000);
+    sendSMS(sender.c_str(), "OK: Buzzer test sounding for 3 seconds.");
   }
   else if (upperBody == "RESET") {
     resetToDefaults();
-    sendSMS(sender.c_str(), "OK: Thresholds restored to factory defaults.");
+    sendSMS(sender.c_str(), "OK: Settings reset to factory defaults.");
   }
   else if (upperBody == "CALL") {
     sendSMS(sender.c_str(), "Initiating test voice call now...");
     makeEmergencyPhoneCall(sender.c_str());
   }
   else {
-    sendSMS(sender.c_str(), "Commands available:\nSTATUS\nSET TEMP <val>\nSET ACCEL <val>\nRESET\nCALL");
+    sendSMS(sender.c_str(), "Commands:\nSTATUS\nSET TEMP <val>\nSET MIN <val>\nMUTE\nUNMUTE\nBUZZER TEST\nCALL\nRESET");
   }
 }
 
@@ -361,17 +519,14 @@ void checkIncomingGSM() {
     char c = (char)gsmSerial.read();
     gsmRxBuffer += c;
     
-    // Check for +CMT: incoming SMS header
     if (gsmRxBuffer.endsWith("\n")) {
       int cmtIdx = gsmRxBuffer.indexOf("+CMT:");
       if (cmtIdx != -1) {
-        // Extract sender phone
         int quote1 = gsmRxBuffer.indexOf("\"", cmtIdx);
         int quote2 = gsmRxBuffer.indexOf("\"", quote1 + 1);
         if (quote1 != -1 && quote2 != -1) {
           String sender = gsmRxBuffer.substring(quote1 + 1, quote2);
           
-          // Next line is the message body
           unsigned long waitStart = millis();
           String smsBody = "";
           while (millis() - waitStart < 2000) {
@@ -384,13 +539,13 @@ void checkIncomingGSM() {
           processIncomingSMS(sender, smsBody);
         }
       }
-      gsmRxBuffer = ""; // Clear buffer after newline
+      gsmRxBuffer = "";
     }
   }
 }
 
 // =============================================================================
-// ONLINE BACKUP ALERTS (TELEGRAM BOT VIA WI-FI)
+// TELEGRAM NOTIFICATIONS
 // =============================================================================
 void sendTelegramAlert(const String& message) {
   if (WiFi.status() != WL_CONNECTED || strlen(config.telegramToken) < 10 || strlen(config.telegramChatId) < 2) {
@@ -398,7 +553,7 @@ void sendTelegramAlert(const String& message) {
   }
 
   WiFiClientSecure client;
-  client.setInsecure(); // Skip certificate validation for embedded simplicity
+  client.setInsecure();
   HTTPClient https;
 
   String url = "https://api.telegram.org/bot" + String(config.telegramToken) + 
@@ -410,7 +565,7 @@ void sendTelegramAlert(const String& message) {
     if (code > 0) {
       Serial.printf("[TELEGRAM] Message sent (HTTP %d)\n", code);
     } else {
-      Serial.printf("[TELEGRAM] Error sending: %s\n", https.errorToString(code).c_str());
+      Serial.printf("[TELEGRAM] Error: %s\n", https.errorToString(code).c_str());
     }
     https.end();
   }
@@ -418,8 +573,7 @@ void sendTelegramAlert(const String& message) {
 
 String urlEncode(const String& str) {
   String encoded = "";
-  char c;
-  char code0, code1;
+  char c, code0, code1;
   for (unsigned int i = 0; i < str.length(); i++) {
     c = str.charAt(i);
     if (isalnum(c)) {
@@ -441,61 +595,15 @@ String urlEncode(const String& str) {
 }
 
 // =============================================================================
-// SENSOR MONITORING & THRESHOLD EVALUATION
-// =============================================================================
-void readSensors() {
-  // 1. Read DHT22/11
-  float t = dht.readTemperature();
-  float h = dht.readHumidity();
-  if (!isnan(t)) {
-    currentTemp = t;
-    currentHumidity = h;
-    dhtAvailable = true;
-  } else {
-    dhtAvailable = false;
-  }
-
-  // 2. Read MPU-6050
-  if (mpuAvailable) {
-    sensors_event_t a, g, temp;
-    mpu.getEvent(&a, &g, &temp);
-
-    // Convert m/s^2 to G-force (1G = 9.80665 m/s^2)
-    accelX = a.acceleration.x / 9.80665;
-    accelY = a.acceleration.y / 9.80665;
-    accelZ = a.acceleration.z / 9.80665;
-    currentTotalG = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
-  }
-
-  // 3. Read Battery Level
-  readBattery();
-}
-
-void evaluateThresholds() {
-  bool tempBreached = (currentTemp >= config.tempMax);
-  bool accelBreached = (currentTotalG >= config.accelMax);
-
-  if (tempBreached || accelBreached) {
-    String reason = "";
-    if (tempBreached) {
-      reason += "High Temp Exceeded (" + String(currentTemp, 1) + "C >= " + String(config.tempMax, 1) + "C)\n";
-    }
-    if (accelBreached) {
-      reason += "High Vibration/Shock Exceeded (" + String(currentTotalG, 2) + "G >= " + String(config.accelMax, 2) + "G)\n";
-    }
-    triggerEmergencyAlert(reason);
-  }
-}
-
-// =============================================================================
 // WEB SERVER DASHBOARD & CONFIGURATION PORTAL
 // =============================================================================
 const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ESP32-S3 Emergency Alert Center</title>
+  <title>ESP32-S3 Temp & Buzzer Monitor</title>
   <style>
     :root {
       --bg: #090d16;
@@ -506,6 +614,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       --border: #1e293b;
       --danger: #ef4444;
       --success: #10b981;
+      --warning: #f59e0b;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -517,9 +626,9 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       flex-direction: column;
       align-items: center;
     }
-    .container { width: 100%; max-width: 580px; }
+    .container { width: 100%; max-width: 600px; }
     h1 { color: #38bdf8; text-align: center; margin-bottom: 4px; font-size: 1.5rem; }
-    p.subtitle { text-align: center; color: #94a3b8; margin-top: 0; margin-bottom: 20px; font-size: 0.9rem; }
+    p.subtitle { text-align: center; color: #94a3b8; margin-top: 0; margin-bottom: 16px; font-size: 0.88rem; }
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -528,8 +637,9 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       margin-bottom: 16px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.4);
     }
-    .card h3 { margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; color: #cbd5e1; }
+    .card h3 { margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; color: #cbd5e1; font-size: 1.05rem; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     .stat-box {
       background: #090d16;
       border: 1px solid #1e293b;
@@ -538,213 +648,366 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       text-align: center;
     }
     .stat-val { font-size: 1.4rem; font-weight: 700; color: #38bdf8; }
-    .stat-label { font-size: 0.78rem; color: #94a3b8; text-transform: uppercase; margin-top: 4px; }
-    .form-group { margin-bottom: 14px; }
-    label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; }
+    .stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-top: 4px; }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .badge-ok { background: rgba(16,185,129,0.18); color: #10b981; border: 1px solid #10b981; }
+    .badge-danger { background: rgba(239,68,68,0.22); color: #ef4444; border: 1px solid #ef4444; }
+    .badge-warn { background: rgba(245,158,11,0.22); color: #f59e0b; border: 1px solid #f59e0b; }
+    .alert-banner {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-weight: 600;
+      text-align: center;
+      display: none;
+    }
+    .alert-danger { background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5; }
+    .btn {
+      background: var(--accent-grad);
+      color: #fff;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 6px;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn-secondary { background: #334155; }
+    .btn-danger { background: #dc2626; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 4px; }
     input[type="text"], input[type="number"], input[type="password"] {
       width: 100%;
-      padding: 10px;
+      box-sizing: border-box;
+      padding: 9px;
       background: #090d16;
       border: 1px solid #334155;
       color: #fff;
       border-radius: 6px;
-      box-sizing: border-box;
-      font-size: 0.95rem;
     }
-    .checkbox-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 14px 0;
-    }
-    .btn {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 0.95rem;
-      margin-top: 8px;
-      transition: 0.2s;
-    }
-    .btn-primary { background: #0284c7; color: #fff; }
-    .btn-secondary { background: #334155; color: #fff; }
-    .btn-danger { background: var(--danger); color: #fff; }
-    .btn:hover { opacity: 0.9; }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 0.9rem; }
+    .hardware-info { font-size: 0.8rem; color: #94a3b8; background: #0b1120; border-radius: 8px; padding: 10px; margin-top: 8px; }
   </style>
-  <script>
-    setInterval(() => {
-      fetch('/api/data')
-        .then(r => r.json())
-        .then(d => {
-          document.getElementById('tempVal').innerText = d.temp + ' ┬░C';
-          document.getElementById('accelVal').innerText = d.accel + ' G';
-          document.getElementById('humVal').innerText = d.humidity + ' %';
-          document.getElementById('batVal').innerText = d.batPct + '% (' + d.batVolt + 'V)';
-        });
-    }, 1500);
-  </script>
 </head>
 <body>
   <div class="container">
-    <h1>ESP32-S3 Alert Center</h1>
-    <p class="subtitle">Live Telemetry, SMS & Threshold Management</p>
+    <h1>ESP32-S3 Temp & Buzzer System</h1>
+    <p class="subtitle">Red Temp Sensor (GPIO 4 / 5) &bull; Active Buzzer (GPIO 6)</p>
 
-    <!-- Telemetry -->
+    <div id="alarmBanner" class="alert-banner alert-danger">
+      🚨 ALARM ACTIVE: Temperature Threshold Breached!
+    </div>
+
+    <!-- Live Telemetry Card -->
     <div class="card">
       <h3>Live Telemetry</h3>
       <div class="grid-2">
         <div class="stat-box">
-          <div class="stat-val" id="tempVal">-- ┬░C</div>
+          <div class="stat-val" id="tempVal">--.- &deg;C</div>
           <div class="stat-label">Temperature</div>
         </div>
         <div class="stat-box">
-          <div class="stat-val" id="accelVal">-- G</div>
-          <div class="stat-label">Motion / Shock</div>
+          <div class="stat-val" id="tempValF">--.- &deg;F</div>
+          <div class="stat-label">Fahrenheit</div>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-top: 12px;">
+        <div class="stat-box">
+          <div class="stat-val" id="adcVal" style="font-size: 1.1rem;">-- mV</div>
+          <div class="stat-label">AO (GPIO 4)</div>
         </div>
         <div class="stat-box">
-          <div class="stat-val" id="batVal">-- %</div>
-          <div class="stat-label">Battery Level</div>
+          <div class="stat-val" id="doBadge">--</div>
+          <div class="stat-label">DO (GPIO 5)</div>
         </div>
         <div class="stat-box">
-          <div class="stat-val" id="humVal">-- %</div>
-          <div class="stat-label">Humidity</div>
+          <div class="stat-val" id="buzzerBadge">--</div>
+          <div class="stat-label">Buzzer (GPIO 6)</div>
         </div>
+      </div>
+      <div style="margin-top: 12px; display: flex; justify-content: space-between; font-size: 0.85rem; color: #94a3b8;">
+        <span>Battery: <strong id="batVal" style="color: #38bdf8;">--%</strong></span>
+        <span>Alarm State: <span id="alarmState" class="badge badge-ok">NORMAL</span></span>
       </div>
     </div>
 
-    <!-- Threshold Configuration -->
+    <!-- Quick Actions Card -->
     <div class="card">
-      <h3>Thresholds & Contacts</h3>
+      <h3>Buzzer & Alarm Quick Actions</h3>
+      <div class="grid-2">
+        <button class="btn btn-secondary" onclick="actionPost('/buzzer-test')">🔊 Test Buzzer (3s)</button>
+        <button class="btn btn-secondary" id="muteBtn" onclick="actionPost('/buzzer-toggle-mute')">🔕 Mute Buzzer</button>
+      </div>
+      <div class="grid-2" style="margin-top: 8px;">
+        <button class="btn btn-secondary" onclick="actionPost('/test-sms')">📱 Send Test SMS</button>
+        <button class="btn btn-secondary" onclick="actionPost('/test-call')">📞 Place Test Call</button>
+      </div>
+    </div>
+
+    <!-- Configuration Form -->
+    <div class="card">
+      <h3>Thresholds & Notification Settings</h3>
       <form action="/save" method="POST">
-        <div class="form-group">
-          <label>Max Temperature Threshold (┬░C):</label>
-          <input type="number" step="0.1" name="tempMax" value="%TEMP_MAX%" required>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Max Temp Limit (&deg;C)</label>
+            <input type="number" step="0.5" name="tempMax" value="35.0" id="cfgTempMax" required>
+          </div>
+          <div class="form-group">
+            <label>Min Temp Limit (&deg;C)</label>
+            <input type="number" step="0.5" name="tempMin" value="2.0" id="cfgTempMin" required>
+          </div>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="cfgBuzzerEn" name="buzzEn" value="1" checked>
+          <label for="cfgBuzzerEn" style="margin: 0; color: #f1f5f9;">Enable Active Buzzer on Alarm</label>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="cfgDoEn" name="doEn" value="1" checked>
+          <label for="cfgDoEn" style="margin: 0; color: #f1f5f9;">Trigger Alarm on DO Pin Trigger (GPIO 5 LOW)</label>
         </div>
         <div class="form-group">
-          <label>Max Acceleration/Shock Threshold (G):</label>
-          <input type="number" step="0.05" name="accelMax" value="%ACCEL_MAX%" required>
+          <label>Primary Phone Number (SMS & Calls)</label>
+          <input type="text" name="phone1" id="cfgPhone1" placeholder="+1234567890">
         </div>
         <div class="form-group">
-          <label>Primary Phone Number (e.g., +1234567890):</label>
-          <input type="text" name="phone1" value="%PHONE1%" required>
+          <label>Secondary Phone Number (Optional)</label>
+          <input type="text" name="phone2" id="cfgPhone2" placeholder="+1234567890">
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="cfgCall" name="call" value="1" checked>
+          <label for="cfgCall" style="margin: 0; color: #f1f5f9;">Place Emergency Voice Call on Alarm</label>
         </div>
         <div class="form-group">
-          <label>Secondary Emergency Contact (Optional):</label>
-          <input type="text" name="phone2" value="%PHONE2%">
-        </div>
-        <div class="checkbox-group">
-          <input type="checkbox" id="voiceCall" name="voiceCall" %VOICE_CHECKED%>
-          <label for="voiceCall" style="margin:0; color:#f1f5f9; cursor:pointer;">
-            Enable Emergency Phone Call (Rings your phone)
-          </label>
-        </div>
-
-        <h3 style="margin-top:20px; font-size:1rem;">Optional Backup Alerts (Wi-Fi & Telegram)</h3>
-        <div class="form-group">
-          <label>Home Wi-Fi SSID:</label>
-          <input type="text" name="ssid" value="%SSID%">
+          <label>Wi-Fi SSID (For Internet Backup)</label>
+          <input type="text" name="ssid" id="cfgSsid">
         </div>
         <div class="form-group">
-          <label>Home Wi-Fi Password:</label>
-          <input type="password" name="pass" value="%PASS%">
+          <label>Wi-Fi Password</label>
+          <input type="password" name="pass" id="cfgPass">
         </div>
         <div class="form-group">
-          <label>Telegram Bot Token (Optional):</label>
-          <input type="text" name="tgTok" value="%TG_TOK%">
+          <label>Telegram Bot Token (Optional)</label>
+          <input type="text" name="tgTok" id="cfgTgTok">
         </div>
         <div class="form-group">
-          <label>Telegram Chat ID (Optional):</label>
-          <input type="text" name="tgChat" value="%TG_CHAT%">
+          <label>Telegram Chat ID (Optional)</label>
+          <input type="text" name="tgChat" id="cfgTgChat">
         </div>
-
-        <button type="submit" class="btn btn-primary">Save & Apply All Settings</button>
-      </form>
-
-      <form action="/reset" method="POST" style="margin-top:8px;">
-        <button type="submit" class="btn btn-secondary">Restore Factory Defaults</button>
-      </form>
-      <form action="/test-sms" method="POST" style="margin-top:8px;">
-        <button type="submit" class="btn btn-danger">Send Test SMS Now</button>
-      </form>
-      <form action="/test-call" method="POST" style="margin-top:8px;">
-        <button type="submit" class="btn btn-danger">Trigger Test Phone Call</button>
+        <button type="submit" class="btn">💾 Save All Settings to Flash</button>
       </form>
     </div>
+
+    <!-- Hardware Wiring Reference Card -->
+    <div class="card">
+      <h3>Hardware Pin Reference</h3>
+      <div class="hardware-info">
+        <strong>Red Temperature Sensor Module:</strong><br>
+        &bull; AO &rarr; GPIO 4 (Analog ADC)<br>
+        &bull; GND &rarr; GND<br>
+        &bull; + &rarr; 3V3<br>
+        &bull; DO &rarr; GPIO 5 (Digital Threshold)<br><br>
+        <strong>Black Active Buzzer Module:</strong><br>
+        &bull; S &rarr; GPIO 6 (Buzzer Signal)<br>
+        &bull; middle pin &rarr; 3V3<br>
+        &bull; - &rarr; GND
+      </div>
+    </div>
   </div>
+
+  <script>
+    async function updateTelemetry() {
+      try {
+        const res = await fetch('/api/data');
+        const d = await res.json();
+        
+        document.getElementById('tempVal').innerText = d.temp.toFixed(1) + ' °C';
+        document.getElementById('tempValF').innerText = d.tempF.toFixed(1) + ' °F';
+        document.getElementById('adcVal').innerText = d.adcMv + ' mV';
+        document.getElementById('batVal').innerText = d.batteryPct.toFixed(0) + '% (' + d.batteryVolt.toFixed(2) + 'V)';
+
+        // DO Pin Badge
+        const doEl = document.getElementById('doBadge');
+        if (d.doTripped) {
+          doEl.innerHTML = '<span class="badge badge-danger">TRIPPED</span>';
+        } else {
+          doEl.innerHTML = '<span class="badge badge-ok">NORMAL</span>';
+        }
+
+        // Buzzer Badge
+        const buzzEl = document.getElementById('buzzerBadge');
+        if (d.buzzerMuted) {
+          buzzEl.innerHTML = '<span class="badge badge-warn">MUTED</span>';
+        } else if (d.buzzerState) {
+          buzzEl.innerHTML = '<span class="badge badge-danger">BEEPING</span>';
+        } else {
+          buzzEl.innerHTML = '<span class="badge badge-ok">SILENT</span>';
+        }
+
+        // Alarm State & Banner
+        const banner = document.getElementById('alarmBanner');
+        const alarmState = document.getElementById('alarmState');
+        if (d.alarmActive) {
+          banner.style.display = 'block';
+          alarmState.className = 'badge badge-danger';
+          alarmState.innerText = 'ALARM';
+        } else {
+          banner.style.display = 'none';
+          alarmState.className = 'badge badge-ok';
+          alarmState.innerText = 'NORMAL';
+        }
+
+        // Mute button text
+        document.getElementById('muteBtn').innerText = d.buzzerMuted ? '🔔 Unmute Buzzer' : '🔕 Mute Buzzer';
+      } catch (e) {
+        console.error('Fetch error:', e);
+      }
+    }
+
+    async function loadFormValues() {
+      try {
+        const res = await fetch('/api/config');
+        const c = await res.json();
+        document.getElementById('cfgTempMax').value = c.tempMax;
+        document.getElementById('cfgTempMin').value = c.tempMin;
+        document.getElementById('cfgBuzzerEn').checked = c.buzzerEnabled;
+        document.getElementById('cfgDoEn').checked = c.doAlertEnabled;
+        document.getElementById('cfgPhone1').value = c.phone1;
+        document.getElementById('cfgPhone2').value = c.phone2;
+        document.getElementById('cfgCall').checked = c.enableVoiceCall;
+        document.getElementById('cfgSsid').value = c.ssid;
+        document.getElementById('cfgTgTok').value = c.tgTok;
+        document.getElementById('cfgTgChat').value = c.tgChat;
+      } catch (e) {
+        console.error('Config fetch error:', e);
+      }
+    }
+
+    function actionPost(url) {
+      fetch(url, { method: 'POST' })
+        .then(() => updateTelemetry())
+        .catch(err => alert('Action failed: ' + err));
+    }
+
+    setInterval(updateTelemetry, 1000);
+    updateTelemetry();
+    loadFormValues();
+  </script>
 </body>
 </html>
 )rawliteral";
 
 void handleRoot() {
-  String page = FPSTR(INDEX_HTML);
-  page.replace("%TEMP_MAX%", String(config.tempMax, 1));
-  page.replace("%ACCEL_MAX%", String(config.accelMax, 2));
-  page.replace("%PHONE1%", String(config.phonePrimary));
-  page.replace("%PHONE2%", String(config.phoneSecondary));
-  page.replace("%VOICE_CHECKED%", config.enableVoiceCall ? "checked" : "");
-  page.replace("%SSID%", String(config.wifiSsid));
-  page.replace("%PASS%", String(config.wifiPass));
-  page.replace("%TG_TOK%", String(config.telegramToken));
-  page.replace("%TG_CHAT%", String(config.telegramChatId));
-  server.send(200, "text/html", page);
+  server.send_P(200, "text/html", INDEX_HTML);
 }
 
 void handleApiData() {
   String json = "{";
-  json += "\"temp\":" + String(currentTemp, 1) + ",";
-  json += "\"humidity\":" + String(currentHumidity, 1) + ",";
-  json += "\"accel\":" + String(currentTotalG, 2) + ",";
-  json += "\"batVolt\":" + String(batteryVoltage, 2) + ",";
-  json += "\"batPct\":" + String(batteryPercent, 0);
+  json += "\"temp\":" + String(currentTemp, 2) + ",";
+  json += "\"tempF\":" + String(currentTempF, 2) + ",";
+  json += "\"adcMv\":" + String(rawAdcMv) + ",";
+  json += "\"voltage\":" + String(currentVoltage, 3) + ",";
+  json += "\"doTripped\":" + String(doTripped ? "true" : "false") + ",";
+  json += "\"alarmActive\":" + String(alarmActive ? "true" : "false") + ",";
+  json += "\"buzzerState\":" + String(buzzerOutputState ? "true" : "false") + ",";
+  json += "\"buzzerMuted\":" + String(buzzerMuted ? "true" : "false") + ",";
+  json += "\"batteryVolt\":" + String(batteryVoltage, 2) + ",";
+  json += "\"batteryPct\":" + String(batteryPercent, 0);
+  json += "}";
+  server.send(200, "application/json", json);
+}
+
+void handleApiConfig() {
+  String json = "{";
+  json += "\"tempMax\":" + String(config.tempMax, 1) + ",";
+  json += "\"tempMin\":" + String(config.tempMin, 1) + ",";
+  json += "\"buzzerEnabled\":" + String(config.buzzerEnabled ? "true" : "false") + ",";
+  json += "\"doAlertEnabled\":" + String(config.doAlertEnabled ? "true" : "false") + ",";
+  json += "\"phone1\":\"" + String(config.phonePrimary) + "\",";
+  json += "\"phone2\":\"" + String(config.phoneSecondary) + "\",";
+  json += "\"enableVoiceCall\":" + String(config.enableVoiceCall ? "true" : "false") + ",";
+  json += "\"ssid\":\"" + String(config.wifiSsid) + "\",";
+  json += "\"tgTok\":\"" + String(config.telegramToken) + "\",";
+  json += "\"tgChat\":\"" + String(config.telegramChatId) + "\"";
   json += "}";
   server.send(200, "application/json", json);
 }
 
 void handleSave() {
   if (server.hasArg("tempMax"))  config.tempMax = server.arg("tempMax").toFloat();
-  if (server.hasArg("accelMax")) config.accelMax = server.arg("accelMax").toFloat();
-  if (server.hasArg("phone1"))   server.arg("phone1").toCharArray(config.phonePrimary, sizeof(config.phonePrimary));
-  if (server.hasArg("phone2"))   server.arg("phone2").toCharArray(config.phoneSecondary, sizeof(config.phoneSecondary));
-  config.enableVoiceCall = server.hasArg("voiceCall");
+  if (server.hasArg("tempMin"))  config.tempMin = server.arg("tempMin").toFloat();
+  config.buzzerEnabled = server.hasArg("buzzEn");
+  config.doAlertEnabled = server.hasArg("doEn");
+  config.enableVoiceCall = server.hasArg("call");
 
-  if (server.hasArg("ssid"))   server.arg("ssid").toCharArray(config.wifiSsid, sizeof(config.wifiSsid));
-  if (server.hasArg("pass"))   server.arg("pass").toCharArray(config.wifiPass, sizeof(config.wifiPass));
-  if (server.hasArg("tgTok"))  server.arg("tgTok").toCharArray(config.telegramToken, sizeof(config.telegramToken));
-  if (server.hasArg("tgChat")) server.arg("tgChat").toCharArray(config.telegramChatId, sizeof(config.telegramChatId));
-
-  saveConfiguration();
-  
-  // Try connecting to Wi-Fi if configured
-  if (strlen(config.wifiSsid) > 0) {
-    WiFi.begin(config.wifiSsid, config.wifiPass);
+  if (server.hasArg("phone1")) {
+    String p1 = server.arg("phone1");
+    p1.trim();
+    p1.toCharArray(config.phonePrimary, sizeof(config.phonePrimary));
+  }
+  if (server.hasArg("phone2")) {
+    String p2 = server.arg("phone2");
+    p2.trim();
+    p2.toCharArray(config.phoneSecondary, sizeof(config.phoneSecondary));
+  }
+  if (server.hasArg("ssid")) {
+    String s = server.arg("ssid");
+    s.trim();
+    s.toCharArray(config.wifiSsid, sizeof(config.wifiSsid));
+  }
+  if (server.hasArg("pass")) {
+    String p = server.arg("pass");
+    p.trim();
+    if (p.length() > 0) {
+      p.toCharArray(config.wifiPass, sizeof(config.wifiPass));
+    }
+  }
+  if (server.hasArg("tgTok")) {
+    String t = server.arg("tgTok");
+    t.trim();
+    t.toCharArray(config.telegramToken, sizeof(config.telegramToken));
+  }
+  if (server.hasArg("tgChat")) {
+    String c = server.arg("tgChat");
+    c.trim();
+    c.toCharArray(config.telegramChatId, sizeof(config.telegramChatId));
   }
 
+  saveConfiguration();
   server.sendHeader("Location", "/");
   server.send(303);
 }
 
-void handleReset() {
-  resetToDefaults();
-  server.sendHeader("Location", "/");
-  server.send(303);
+void handleBuzzerTest() {
+  startBuzzerTest(3000);
+  server.send(200, "text/plain", "OK: Buzzer sounding for 3 seconds");
+}
+
+void handleBuzzerToggleMute() {
+  buzzerMuted = !buzzerMuted;
+  server.send(200, "text/plain", buzzerMuted ? "MUTED" : "UNMUTED");
 }
 
 void handleTestSMS() {
-  sendSMS(config.phonePrimary, "Test SMS from ESP32-S3 Alert Center! All systems functional.");
-  server.sendHeader("Location", "/");
-  server.send(303);
+  sendSMS(config.phonePrimary, "Test SMS triggered from ESP32-S3 Web Dashboard.");
+  server.send(200, "text/plain", "OK: Test SMS Dispatched");
 }
 
 void handleTestCall() {
   makeEmergencyPhoneCall(config.phonePrimary);
-  server.sendHeader("Location", "/");
-  server.send(303);
+  server.send(200, "text/plain", "OK: Test Call Initiated");
 }
 
 void initWebServer() {
-  // Start Soft Access Point
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(AP_SSID, AP_PASS);
 
@@ -753,33 +1016,38 @@ void initWebServer() {
     Serial.printf("[WiFi] Connecting to %s...\n", config.wifiSsid);
   }
 
-  Serial.print("[WiFi] Access Point started! Connect to SSID: ");
+  Serial.print("[WiFi] Access Point started! SSID: ");
   Serial.println(AP_SSID);
   Serial.print("[WiFi] Web Dashboard URL: http://");
   Serial.println(WiFi.softAPIP());
 
   server.on("/", HTTP_GET, handleRoot);
   server.on("/api/data", HTTP_GET, handleApiData);
+  server.on("/api/config", HTTP_GET, handleApiConfig);
   server.on("/save", HTTP_POST, handleSave);
-  server.on("/reset", HTTP_POST, handleReset);
+  server.on("/buzzer-test", HTTP_POST, handleBuzzerTest);
+  server.on("/buzzer-toggle-mute", HTTP_POST, handleBuzzerToggleMute);
   server.on("/test-sms", HTTP_POST, handleTestSMS);
   server.on("/test-call", HTTP_POST, handleTestCall);
   server.begin();
 }
 
 // =============================================================================
-// SERIAL CLI (Interactive Command Console)
+// SERIAL CLI (USB Interactive Console)
 // =============================================================================
 void printHelp() {
   Serial.println("\n============== ESP32-S3 CLI COMMANDS ==============");
-  Serial.println("STATUS               - View sensor readings, battery & thresholds");
-  Serial.println("SET TEMP <val>       - Change max temperature limit in *C");
-  Serial.println("SET ACCEL <val>      - Change max acceleration limit in G");
+  Serial.println("STATUS               - View temperature, DO state, buzzer & battery");
+  Serial.println("SET TEMP <val>       - Set max temperature limit in °C");
+  Serial.println("SET MIN <val>        - Set min temperature limit in °C");
+  Serial.println("BUZZER <ON/OFF/TEST> - Turn buzzer ON, OFF, or TEST (3s)");
+  Serial.println("MUTE / UNMUTE        - Mute or unmute buzzer during an alarm");
   Serial.println("SET PHONE1 <num>     - Set primary recipient phone number");
   Serial.println("SET PHONE2 <num>     - Set secondary recipient phone number");
-  Serial.println("SET CALL <ON/OFF>    - Enable or disable emergency voice calling");
+  Serial.println("SET CALL <ON/OFF>    - Enable or disable voice calling");
+  Serial.println("TEST BUZZER          - Sound buzzer for 3 seconds");
   Serial.println("TEST SMS             - Dispatch immediate test SMS");
-  Serial.println("TEST CALL            - Place test phone call");
+  Serial.println("TEST CALL            - Place immediate test phone call");
   Serial.println("RESET                - Restore factory default configuration");
   Serial.println("HELP                 - Display command list");
   Serial.println("====================================================\n");
@@ -787,16 +1055,20 @@ void printHelp() {
 
 void printStatus() {
   Serial.println("\n--- Current System Telemetry ---");
-  Serial.printf("Temperature      : %.1f *C\n", currentTemp);
-  Serial.printf("Humidity         : %.1f %%\n", currentHumidity);
-  Serial.printf("Acceleration (G) : %.2f G (X:%.2f, Y:%.2f, Z:%.2f)\n", currentTotalG, accelX, accelY, accelZ);
-  Serial.printf("Battery          : %.2f V (%.0f %%)\n", batteryVoltage, batteryPercent);
+  Serial.printf("Temperature          : %.1f °C (%.1f °F)\n", currentTemp, currentTempF);
+  Serial.printf("AO (GPIO 4 Voltage)  : %.3f V (%d mV)\n", currentVoltage, rawAdcMv);
+  Serial.printf("DO (GPIO 5 State)    : %s (Pin=%d)\n", doTripped ? "TRIGGERED (LOW)" : "NORMAL (HIGH)", currentDoState);
+  Serial.printf("Active Buzzer (GPIO 6): %s (Muted=%s)\n", buzzerOutputState ? "BEEPING" : "SILENT", buzzerMuted ? "YES" : "NO");
+  Serial.printf("Alarm State          : %s\n", alarmActive ? "ALARM ACTIVE" : "NORMAL");
+  Serial.printf("Battery              : %.2f V (%.0f %%)\n", batteryVoltage, batteryPercent);
   Serial.println("--- Active Thresholds & Settings ---");
-  Serial.printf("Max Temp Limit   : %.1f *C\n", config.tempMax);
-  Serial.printf("Max Accel Limit  : %.2f G\n", config.accelMax);
-  Serial.printf("Primary Phone    : %s\n", config.phonePrimary);
-  Serial.printf("Secondary Phone  : %s\n", config.phoneSecondary);
-  Serial.printf("Emergency Call   : %s\n", config.enableVoiceCall ? "ENABLED" : "DISABLED");
+  Serial.printf("Max Temp Limit       : %.1f °C\n", config.tempMax);
+  Serial.printf("Min Temp Limit       : %.1f °C\n", config.tempMin);
+  Serial.printf("Buzzer Enabled       : %s\n", config.buzzerEnabled ? "YES" : "NO");
+  Serial.printf("DO Trigger Enabled   : %s\n", config.doAlertEnabled ? "YES" : "NO");
+  Serial.printf("Primary Phone        : %s\n", config.phonePrimary);
+  Serial.printf("Secondary Phone      : %s\n", config.phoneSecondary);
+  Serial.printf("Emergency Call       : %s\n", config.enableVoiceCall ? "ENABLED" : "DISABLED");
   Serial.println("--------------------------------\n");
 }
 
@@ -810,6 +1082,20 @@ void processSerialCommand(String cmd) {
     printStatus();
   } else if (cmd == "RESET") {
     resetToDefaults();
+  } else if (cmd == "TEST BUZZER" || cmd == "BUZZER TEST") {
+    startBuzzerTest(3000);
+  } else if (cmd == "BUZZER ON") {
+    setBuzzerHardware(true);
+    Serial.println("[CLI] Buzzer set to ON.");
+  } else if (cmd == "BUZZER OFF") {
+    setBuzzerHardware(false);
+    Serial.println("[CLI] Buzzer set to OFF.");
+  } else if (cmd == "MUTE") {
+    buzzerMuted = true;
+    Serial.println("[CLI] Buzzer muted.");
+  } else if (cmd == "UNMUTE") {
+    buzzerMuted = false;
+    Serial.println("[CLI] Buzzer unmuted.");
   } else if (cmd == "TEST SMS") {
     sendSMS(config.phonePrimary, "Test SMS initiated from Serial CLI.");
   } else if (cmd == "TEST CALL") {
@@ -819,18 +1105,18 @@ void processSerialCommand(String cmd) {
     if (val > -40.0 && val < 125.0) {
       config.tempMax = val;
       saveConfiguration();
-      Serial.printf("[CLI] Temp Max threshold updated to %.1f *C\n", config.tempMax);
+      Serial.printf("[CLI] Temp Max threshold updated to %.1f °C\n", config.tempMax);
     } else {
       Serial.println("[CLI] Invalid temperature value.");
     }
-  } else if (cmd.startsWith("SET ACCEL ")) {
-    float val = cmd.substring(10).toFloat();
-    if (val > 0.1 && val < 16.0) {
-      config.accelMax = val;
+  } else if (cmd.startsWith("SET MIN ")) {
+    float val = cmd.substring(8).toFloat();
+    if (val > -40.0 && val < 125.0) {
+      config.tempMin = val;
       saveConfiguration();
-      Serial.printf("[CLI] Accel Max threshold updated to %.2f G\n", config.accelMax);
+      Serial.printf("[CLI] Temp Min threshold updated to %.1f °C\n", config.tempMin);
     } else {
-      Serial.println("[CLI] Invalid acceleration value.");
+      Serial.println("[CLI] Invalid temperature value.");
     }
   } else if (cmd.startsWith("SET PHONE1 ")) {
     String p = cmd.substring(11);
@@ -862,43 +1148,38 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
   Serial.println("\n=======================================================");
-  Serial.println("  ESP32-S3 Multi-Sensor Alert & Remote SMS System");
+  Serial.println("  ESP32-S3 Temperature Sensor & Active Buzzer System");
   Serial.println("=======================================================");
 
-  // 1. Load Stored Configuration from NVS Flash
+  // 1. Configure Hardware GPIO Pins
+  pinMode(PIN_TEMP_DO, INPUT_PULLUP);
+  pinMode(PIN_BUZZER, OUTPUT);
+  setBuzzerHardware(false);
+
+  // Quick power-on beep to confirm buzzer wiring
+  setBuzzerHardware(true);
+  delay(100);
+  setBuzzerHardware(false);
+
+  // 2. Load Configuration from Flash NVS
   loadConfiguration();
 
-  // 2. Configure Battery ADC
-  analogReadResolution(12); // 12-bit ADC (0-4095)
-  readBattery();
+  // 3. Configure ADC for AO (GPIO 4) and Battery (GPIO 1)
+  analogReadResolution(12); // 12-bit ADC (0 - 4095)
+  readSensors();
 
-  // 3. Initialize I2C and MPU-6050
-  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
-  if (mpu.begin()) {
-    Serial.println("[MPU6050] Accelerometer connected successfully.");
-    mpu.setAccelerometerRange(MPU6050_RANGE_4_G);
-    mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
-    mpuAvailable = true;
-  } else {
-    Serial.println("[MPU6050] WARNING: MPU6050 not detected! Check wiring.");
-    mpuAvailable = false;
-  }
-
-  // 4. Initialize DHT
-  dht.begin();
-  Serial.println("[DHT] Temperature sensor initialized.");
-
-  // 5. Initialize GSM Modem
+  // 4. Initialize GSM Modem
   initGSM();
 
-  // 6. Initialize Web Server & Wi-Fi
+  // 5. Initialize Wi-Fi & Web Server Dashboard
   initWebServer();
 
   printHelp();
+  printStatus();
 }
 
 void loop() {
-  // 1. Process Web Server requests
+  // 1. Handle incoming web server client requests
   server.handleClient();
 
   // 2. Check for incoming two-way SMS from GSM modem
@@ -910,7 +1191,10 @@ void loop() {
     processSerialCommand(line);
   }
 
-  // 4. Periodic sensor reading & threshold evaluation
+  // 4. Update non-blocking buzzer state machine (pulsing beeps during alarm)
+  updateBuzzerStateMachine();
+
+  // 5. Periodic sensor sampling and threshold evaluation
   unsigned long currentMillis = millis();
   if (currentMillis - lastSensorReadTime >= SENSOR_INTERVAL) {
     lastSensorReadTime = currentMillis;

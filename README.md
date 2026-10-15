@@ -62,7 +62,12 @@ The API currently accepts organization IDs directly and the authentication token
 
 The service stores UTC event times and scopes records by organization ID. Synthetic demo behavior and API prototype boundaries are identified in the interface and documentation.
 
-## ESP32-S3 and sensor trust
+## ESP32-S3 hardware and firmware
+
+Firmware is located in [`firmware/esp32_sensors_sms/`](firmware/esp32_sensors_sms/):
+- **Temperature Sensor (Red board)**: `AO` -> GPIO 4, `DO` -> GPIO 5, `+` -> 3V3, `GND` -> GND.
+- **Active Buzzer (Black board)**: `S` -> GPIO 6, `middle pin` -> 3V3, `-` -> GND.
+- **GSM Modem (Optional)**: `TX` -> GPIO 18, `RX` -> GPIO 17.
 
 The backend includes configurable sensor manifests and device boot sessions for the ESP32-S3.
 Unknown hardware remains marked `HARDWARE_TBD`; no model, GPIO, calibration, or vibration
@@ -92,3 +97,4 @@ The route endpoints return GeoJSON geometry, distance, duration, instructions, a
 transport mode. Reroute options are ranked by duration and then distance. This ranking does not
 claim that roads are obstacle-free; verified live obstacle data would require an additional data
 source.
+

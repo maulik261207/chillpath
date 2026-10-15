@@ -1,90 +1,91 @@
-# Advanced ESP32-S3 Multi-Sensor Monitoring & Emergency Alert System
+# ESP32-S3 Temperature Sensor & Active Buzzer Alarm System
 
-An industrial-grade IoT alarm system running on the **ESP32-S3**. It monitors **Temperature** (DHT22/DHT11) and **3-Axis Acceleration/Shock** (MPU-6050), evaluates readings against configurable limits, monitors **battery health**, and dispatches automated **SMS alerts**, **emergency phone calls**, and optional **Telegram notifications**.
-
----
-
-## ≡ƒîƒ Complete Feature Set
-
-1. **Dual Sensors**:
-   - **MPU-6050**: Vector acceleration magnitude in G ($\sqrt{X^2 + Y^2 + Z^2}$) to detect impacts, drops, or abnormal vibration.
-   - **DHT22 / DHT11**: Precision ambient temperature and humidity.
-2. **Two-Way Remote SMS Control**:
-   - Send commands by SMS from your personal phone to query status or update thresholds remotely (e.g. text `STATUS` or `SET TEMP 45`).
-3. **Emergency Voice Calling**:
-   - Dials your phone via the GSM modem (`ATD...;`) and rings it for 25 seconds during critical breaches so you don't sleep through an alert.
-4. **Dual Emergency Contacts**:
-   - Primary and Secondary recipient phone numbers.
-5. **Battery Health Monitoring**:
-   - Monitors 3.7V - 4.2V Li-ion battery voltage and remaining percentage via ADC. Dispatches an SMS warning if battery drops below 20%.
-6. **Online Backup Alerts (Wi-Fi & Telegram)**:
-   - When connected to Wi-Fi, automatically dispatches free instant alert messages to your Telegram account as a backup to GSM.
-7. **Permanent Storage (NVS Flash)**:
-   - All thresholds, contacts, Wi-Fi credentials, and settings survive power cuts.
-8. **Web Dashboard & Serial CLI**:
-   - Interactive mobile dashboard (`http://192.168.4.1`) and USB Serial console.
+An intelligent IoT monitoring and alarm system running on the **ESP32-S3**. It monitors temperature via a **Red NTC Temperature Sensor Module** and drives an **Active Buzzer Module** for audible alarm alerts, along with automated **SMS alerts**, **emergency voice calls**, a local **Wi-Fi Web Dashboard**, and **Serial CLI control**.
 
 ---
 
-## ≡ƒöî Hardware Wiring Guide (ESP32-S3)
+## 📌 Hardware Wiring Guide (ESP32-S3)
 
-| Component | Pin | ESP32-S3 Pin | Notes |
-| :--- | :--- | :--- | :--- |
-| **MPU-6050** | VCC | 3.3V | |
-| | GND | GND | Common Ground |
-| | SDA | **GPIO 8** | I2C Data |
-| | SCL | **GPIO 9** | I2C Clock |
-| **DHT22 / DHT11** | VCC | 3.3V or 5V | |
-| | DATA | **GPIO 4** | 10k pull-up resistor to VCC recommended |
-| | GND | GND | |
-| **SIM800L / SIM7600**| VCC | 3.7V - 4.2V (2A Peak) | ΓÜá∩╕Å *Power via Li-Ion battery or dedicated buck converter. Do NOT power from ESP32 3.3V pin!* |
-| | GND | GND | Must share common GND with ESP32 |
-| | TX | **GPIO 18** (RX1) | |
-| | RX | **GPIO 17** (TX1) | |
-| **Battery Monitor** | BAT+ | **GPIO 1** | Use two 100k╬⌐ resistors as a voltage divider (BAT+ -> 100k -> GPIO 1 -> 100k -> GND) |
-
----
-
-## ≡ƒô▒ Two-Way SMS Commands (Text directly to the ESP32)
-
-You can send any of these SMS messages from your phone to the SIM card inside the ESP32:
-
-| SMS Message | Description | Example Reply From ESP32 |
+### 1. Temperature Sensor (Red Board with Black Bead)
+| Sensor Pin | ESP32-S3 Pin | Notes |
 | :--- | :--- | :--- |
-| `STATUS` | Requests live temperature, shock G, battery %, and threshold settings | `ESP32-S3 Status: Temp: 28.4C, Accel: 1.02G, Battery: 88% (4.08V)...` |
-| `SET TEMP <val>` | Sets new maximum temperature threshold in ┬░C | `OK: Max Temp threshold set to 42.0C` |
-| `SET ACCEL <val>` | Sets new maximum acceleration threshold in G | `OK: Max Accel threshold set to 2.20G` |
-| `RESET` | Restores all thresholds and numbers to factory defaults | `OK: Thresholds restored to factory defaults.` |
-| `CALL` | Triggers a test phone call to the sender | *(Your phone will ring for 25 seconds)* |
+| **AO** | **GPIO 4** | Analog output (ADC1 Channel 3) for continuous temperature reading |
+| **GND** | **GND** | Common ground (connect to breadboard − rail) |
+| **+** | **3V3** | 3.3V Power (connect to breadboard + rail) |
+| **DO** | **GPIO 5** | Digital threshold comparator output (pulled LOW when triggered) |
+
+### 2. Active Buzzer Module (Black Board)
+| Buzzer Pin | ESP32-S3 Pin | Notes |
+| :--- | :--- | :--- |
+| **S** | **GPIO 6** | Signal pin (drives active buzzer HIGH on alert / beep) |
+| **middle pin** | **3V3** | 3.3V Power (connect to breadboard + rail) |
+| **-** | **GND** | Ground (connect to breadboard − rail) |
+
+### 3. Optional GSM Modem (SIM800L / SIM7600)
+| Modem Pin | ESP32-S3 Pin | Notes |
+| :--- | :--- | :--- |
+| **TX** | **GPIO 18** (RX1) | Serial receive from modem |
+| **RX** | **GPIO 17** (TX1) | Serial transmit to modem |
+| **GND** | **GND** | Common ground |
+| **VCC** | **3.7V - 4.2V (2A Peak)** | ⚠️ *Power via Li-Ion battery or buck converter (not ESP32 3V3)* |
 
 ---
 
-## ≡ƒîÉ Web Dashboard (Smartphone / PC)
-
-1. Connect to the ESP32-S3 Wi-Fi Access Point:
-   - **SSID**: `ESP32-Sensor-Monitor`
-   - **Password**: `12345678`
-2. Open your browser and go to: `http://192.168.4.1`
-3. Features on the page:
-   - **Live Telemetry Cards**: Auto-refreshes Temperature, Shock (G), Humidity, and Battery %.
-   - **Threshold Form**: Adjust Temp Max, Accel Max, Primary Phone, Secondary Phone.
-   - **Voice Call Toggle**: Enable or disable dialing your phone on alert.
-   - **Wi-Fi & Telegram Credentials**: Configure home Wi-Fi and Telegram Bot Token for free internet backup alerts.
-   - **Test Buttons**: "Send Test SMS Now" and "Trigger Test Phone Call".
+## 💡 Breadboard Wiring Tips
+1. **Power Rails**: Run one jumper wire from the ESP32 **3V3** pin to the breadboard **+ rail** (red line), and one wire from the ESP32 **GND** pin to the breadboard **− rail** (blue line).
+2. **Connect Components to Rails**:
+   - Plug the Temperature sensor **+** pin and the Buzzer **middle pin** into the breadboard **+ rail**.
+   - Plug the Temperature sensor **GND** pin and the Buzzer **- pin** into the breadboard **− rail**.
+3. **GPIO Column on ESP32-S3**:
+   - On the ESP32-S3 DevKit board, **GPIO 4**, **GPIO 5**, and **GPIO 6** are on the right-hand column just below the `RST` pin.
+   - Ground (`GND`) pins are located at the bottom of both pin columns.
+4. **Pin Labels**:
+   - Temperature sensor is labeled: `AO`, `GND`, `+`, `DO`.
+   - Buzzer module is labeled: `-`, `middle`, `S`.
 
 ---
 
-## ≡ƒÆ╗ Serial Monitor Commands (115200 Baud)
+## 🌟 Key Features
+
+1. **Precision Temperature Tracking**:
+   - Reads analog millivolts on **GPIO 4 (AO)** and applies the Steinhart-Hart / Beta equation ($B = 3950$, $R_0 = 10\text{k}\Omega$).
+   - Also monitors the hardware comparator on **GPIO 5 (DO)**, which switches based on the onboard potentiometer threshold.
+2. **Audible Active Buzzer Alarm**:
+   - Connects to **GPIO 6 (S)**.
+   - Non-blocking pulsing alarm beeps (200ms ON / 200ms OFF) during temperature breaches.
+   - Quick confirmation beep on startup.
+   - Web & CLI mute/unmute and 3-second test sound functions.
+3. **Web Dashboard (`http://192.168.4.1`)**:
+   - Connect to Wi-Fi AP: `ESP32-Temp-Monitor` (Password: `12345678`).
+   - Live telemetry: Temperature (°C & °F), AO voltage (mV), DO trigger status, buzzer state, and battery.
+   - Interactive buttons: "Test Buzzer (3s)", "Mute Buzzer", "Send Test SMS", "Place Test Call".
+   - Settings form for thresholds, emergency contacts, Wi-Fi, and Telegram credentials.
+4. **Automated SMS & Emergency Phone Calls**:
+   - Sends instant SMS alert when temperature exceeds `tempMax` or drops below `tempMin`.
+   - Dials emergency voice call to ring the recipient's phone so alarms are not missed.
+5. **Two-Way Remote SMS Control**:
+   - Text commands directly to the SIM card in the ESP32: `STATUS`, `SET TEMP 38`, `MUTE`, `UNMUTE`, `BUZZER TEST`, `CALL`, `RESET`.
+6. **Serial Monitor CLI (115200 Baud)**:
+   - Full interactive terminal over USB with `STATUS`, `SET TEMP <val>`, `BUZZER <ON/OFF/TEST>`, `MUTE`, etc.
+7. **NVS Flash Memory**:
+   - All configured limits, phone numbers, and Wi-Fi credentials persist across power loss.
+
+---
+
+## 📟 Serial Monitor Commands (115200 Baud)
 
 | Command | Action |
 | :--- | :--- |
-| `STATUS` | View active sensor values, battery state, and active thresholds |
-| `SET TEMP <val>` | Update temperature threshold (e.g. `SET TEMP 38.5`) |
-| `SET ACCEL <val>` | Update acceleration threshold (e.g. `SET ACCEL 2.10`) |
-| `SET PHONE1 <num>`| Update primary emergency contact (e.g. `SET PHONE1 +1234567890`) |
-| `SET PHONE2 <num>`| Update secondary emergency contact |
-| `SET CALL <ON/OFF>`| Enable or disable emergency voice calling (`SET CALL ON`) |
+| `STATUS` | View active temperature, AO millivolts, DO pin state, buzzer status, and battery |
+| `SET TEMP <val>` | Update maximum temperature threshold in °C (e.g. `SET TEMP 37.5`) |
+| `SET MIN <val>` | Update minimum temperature threshold in °C (e.g. `SET MIN 5.0`) |
+| `BUZZER <ON/OFF/TEST>` | Control buzzer state directly |
+| `MUTE` / `UNMUTE` | Mute or unmute buzzer alarm sound |
+| `TEST BUZZER` | Sounds buzzer for 3 seconds |
 | `TEST SMS` | Dispatches immediate test SMS |
 | `TEST CALL` | Places immediate test phone call |
-| `RESET` | Restores factory defaults |
-| `HELP` | Prints command reference |
+| `SET PHONE1 <num>` | Update primary emergency phone number |
+| `SET PHONE2 <num>` | Update secondary emergency phone number |
+| `SET CALL <ON/OFF>` | Enable or disable emergency voice calling |
+| `RESET` | Restores factory default settings |
+| `HELP` | Displays the command reference |
