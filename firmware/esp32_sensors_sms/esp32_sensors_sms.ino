@@ -33,11 +33,16 @@
  */
 
 #include <Arduino.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Preferences.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+
 
 // =============================================================================
 // HARDWARE PIN DEFINITIONS (ESP32-S3)
@@ -137,6 +142,21 @@ const unsigned long SERIAL_PRINT_INTERVAL = 2000; // Auto-print telemetry to ser
 unsigned long lastSmsSentTime = 0;
 unsigned long lastBatteryAlertTime = 0;
 
+// =============================================================================
+// BLUETOOTH LOW ENERGY (BLE) DEFINITIONS
+// =============================================================================
+#define BLE_DEVICE_NAME        "ESP32-Temp-Monitor"
+// Standard Nordic UART Service (NUS) UUIDs for terminal / Web Bluetooth
+#define BLE_SERVICE_UUID       "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+#define BLE_CHARACTERISTIC_RX  "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+#define BLE_CHARACTERISTIC_TX  "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+
+BLEServer *pBleServer = NULL;
+BLECharacteristic *pBleTxChar = NULL;
+bool bleConnected = false;
+bool oldBleConnected = false;
+unsigned long lastBleNotifyTime = 0;
+const unsigned long BLE_NOTIFY_INTERVAL = 1500; // Notify every 1.5 seconds
 
 // Incoming GSM buffer for two-way SMS
 String gsmRxBuffer = "";
@@ -151,6 +171,10 @@ void sendTelegramAlert(const String& message);
 String urlEncode(const String& str);
 void setBuzzerHardware(bool active);
 void updateBuzzerStateMachine();
+void initBLE();
+void sendBleMessage(const String& message);
+void processBleCommand(String cmd);
+
 
 // =============================================================================
 // NTC TEMPERATURE CALCULATION
@@ -1029,18 +1053,27 @@ void handleTestCall() {
 }
 
 void initWebServer() {
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP(AP_SSID, AP_PASS);
+  WiFi.disconnect(true);
+  delay(100);
 
   if (strlen(config.wifiSsid) > 0) {
+    WiFi.mode(WIFI_AP_STA);
     WiFi.begin(config.wifiSsid, config.wifiPass);
     Serial.printf("[WiFi] Connecting to %s...\n", config.wifiSsid);
+  } else {
+    WiFi.mode(WIFI_AP);
   }
 
-  Serial.print("[WiFi] Access Point started! SSID: ");
-  Serial.println(AP_SSID);
-  Serial.print("[WiFi] Web Dashboard URL: http://");
-  Serial.println(WiFi.softAPIP());
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);
+  bool apOk = WiFi.softAP(AP_SSID, AP_PASS, 1, 0, 4);
+
+  if (apOk) {
+    Serial.printf("[WiFi] Access Point started! SSID: '%s' | Password: '%s'\n", AP_SSID, AP_PASS);
+    Serial.print("[WiFi] Web Dashboard URL: http://");
+    Serial.println(WiFi.softAPIP());
+  } else {
+    Serial.println("[WiFi] WARNING: SoftAP failed to start.");
+  }
 
   server.on("/", HTTP_GET, handleRoot);
   server.on("/api/data", HTTP_GET, handleApiData);
@@ -1052,6 +1085,113 @@ void initWebServer() {
   server.on("/test-call", HTTP_POST, handleTestCall);
   server.begin();
 }
+
+// =============================================================================
+// BLUETOOTH LOW ENERGY (BLE) IMPLEMENTATION
+// =============================================================================
+class BleServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+      bleConnected = true;
+      Serial.println("\n[BLE] *** Client connected via Bluetooth! ***");
+    };
+
+    void onDisconnect(BLEServer* pServer) {
+      bleConnected = false;
+      Serial.println("\n[BLE] Client disconnected from Bluetooth.");
+    }
+};
+
+class BleRxCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      String rxValue = pCharacteristic->getValue().c_str();
+      if (rxValue.length() > 0) {
+        processBleCommand(rxValue);
+      }
+    }
+};
+
+void initBLE() {
+  Serial.println("[BLE] Starting Bluetooth Low Energy (BLE)...");
+  BLEDevice::init(BLE_DEVICE_NAME);
+
+  pBleServer = BLEDevice::createServer();
+  pBleServer->setCallbacks(new BleServerCallbacks());
+
+  BLEService *pService = pBleServer->createService(BLE_SERVICE_UUID);
+
+  pBleTxChar = pService->createCharacteristic(
+                 BLE_CHARACTERISTIC_TX,
+                 BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_READ
+               );
+  pBleTxChar->addDescriptor(new BLE2902());
+
+  BLECharacteristic *pBleRxChar = pService->createCharacteristic(
+                                    BLE_CHARACTERISTIC_RX,
+                                    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
+                                  );
+  pBleRxChar->setCallbacks(new BleRxCallbacks());
+
+  pService->start();
+
+  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(BLE_SERVICE_UUID);
+  pAdvertising->setScanResponse(true);
+  pAdvertising->setMinPreferred(0x06); // Recommended for iOS compatibility
+  pAdvertising->setMinPreferred(0x12);
+  BLEDevice::startAdvertising();
+
+  Serial.printf("[BLE] Bluetooth ready! Broadcast Name: '%s'\n", BLE_DEVICE_NAME);
+  Serial.println("[BLE] Connect using Serial Bluetooth Terminal (phone) or Web Bluetooth (browser).");
+}
+
+void sendBleMessage(const String& message) {
+  if (bleConnected && pBleTxChar != NULL) {
+    pBleTxChar->setValue(message.c_str());
+    pBleTxChar->notify();
+  }
+}
+
+void processBleCommand(String cmd) {
+  cmd.trim();
+  Serial.printf("[BLE-CMD] Received: %s\n", cmd.c_str());
+  String upperCmd = cmd;
+  upperCmd.toUpperCase();
+
+  if (upperCmd == "STATUS" || upperCmd == "DATA") {
+    String resp = "STATUS: Temp=" + String(currentTemp, 1) + "C, AO=" + String(rawAdcMv) + "mV, DO=" + (doTripped ? "TRIPPED" : "NORMAL") + ", Buzzer=" + (buzzerOutputState ? "BEEPING" : "SILENT") + "\n";
+    sendBleMessage(resp);
+  }
+  else if (upperCmd.startsWith("SET TEMP ")) {
+    float val = upperCmd.substring(9).toFloat();
+    if (val > -40.0 && val < 125.0) {
+      config.tempMax = val;
+      saveConfiguration();
+      sendBleMessage("OK: Max Temp set to " + String(config.tempMax, 1) + "C\n");
+    } else {
+      sendBleMessage("ERR: Invalid temp value\n");
+    }
+  }
+  else if (upperCmd == "MUTE") {
+    buzzerMuted = true;
+    sendBleMessage("OK: Buzzer Muted\n");
+  }
+  else if (upperCmd == "UNMUTE") {
+    buzzerMuted = false;
+    sendBleMessage("OK: Buzzer Unmuted\n");
+  }
+  else if (upperCmd == "TEST BUZZER" || upperCmd == "BUZZER TEST") {
+    startBuzzerTest(3000);
+    sendBleMessage("OK: Buzzer test active for 3s\n");
+  }
+  else if (upperCmd == "RESET") {
+    resetToDefaults();
+    sendBleMessage("OK: Reset to factory defaults\n");
+  }
+  else {
+    sendBleMessage("Commands: STATUS, SET TEMP <val>, MUTE, UNMUTE, TEST BUZZER, RESET\n");
+  }
+}
+
 
 // =============================================================================
 // SERIAL CLI (USB Interactive Console)
@@ -1195,6 +1335,9 @@ void setup() {
   // 5. Initialize Wi-Fi & Web Server Dashboard
   initWebServer();
 
+  // 6. Initialize Bluetooth Low Energy (BLE)
+  initBLE();
+
   printHelp();
   printStatus();
 }
@@ -1215,8 +1358,29 @@ void loop() {
   // 4. Update non-blocking buzzer state machine (pulsing beeps during alarm)
   updateBuzzerStateMachine();
 
-  // 5. Periodic live telemetry streaming to Serial Monitor
+  // 5. Bluetooth Low Energy connection maintenance & live telemetry streaming
+  if (!bleConnected && oldBleConnected) {
+    delay(500); // Give bluetooth stack chance to get ready
+    pBleServer->startAdvertising(); // Restart advertising when client disconnects
+    Serial.println("[BLE] Client disconnected. Restarted Bluetooth advertising.");
+    oldBleConnected = bleConnected;
+  }
+  if (bleConnected && !oldBleConnected) {
+    oldBleConnected = bleConnected;
+  }
+
   unsigned long currentMillis = millis();
+
+  // Stream live telemetry to connected Bluetooth client
+  if (bleConnected && (currentMillis - lastBleNotifyTime >= BLE_NOTIFY_INTERVAL)) {
+    lastBleNotifyTime = currentMillis;
+    String bleMsg = "Temp: " + String(currentTemp, 1) + "C (" + String(currentTempF, 1) + "F) | AO: " + 
+                    String(rawAdcMv) + "mV | DO: " + (doTripped ? "TRIPPED" : "NORMAL") + 
+                    " | Buzzer: " + (buzzerOutputState ? "BEEPING" : "SILENT") + "\n";
+    sendBleMessage(bleMsg);
+  }
+
+  // 6. Periodic live telemetry streaming to Serial Monitor
   if (currentMillis - lastSerialPrintTime >= SERIAL_PRINT_INTERVAL) {
     lastSerialPrintTime = currentMillis;
     Serial.printf("[SENSOR LIVE] Temp: %.1f C (%.1f F) | AO (GPIO 4): %u mV (%.3f V) | DO (GPIO 5): %s | Buzzer: %s | State: %s\n",
@@ -1229,11 +1393,12 @@ void loop() {
                   alarmActive ? "ALARM ACTIVE!" : "NORMAL");
   }
 
-  // 6. Periodic sensor sampling and threshold evaluation
+  // 7. Periodic sensor sampling and threshold evaluation
   if (currentMillis - lastSensorReadTime >= SENSOR_INTERVAL) {
     lastSensorReadTime = currentMillis;
     readSensors();
     evaluateThresholds();
   }
 }
+
 
