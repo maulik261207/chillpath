@@ -8,6 +8,16 @@ from app.schemas.shipping import PolicyCreate, ShipmentCreate, SensorCreate, Che
 
 router = APIRouter(tags=["shipping"])
 
+@router.get("/product-policies")
+async def list_policies(organization_id: UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.scalars(select(ProductPolicy).where(ProductPolicy.organization_id == organization_id).order_by(ProductPolicy.created_at.desc()))
+    return result.all()
+
+@router.get("/shipments")
+async def list_shipments(organization_id: UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.scalars(select(Shipment).where(Shipment.organization_id == organization_id).order_by(Shipment.created_at.desc()))
+    return result.all()
+
 @router.post("/product-policies", status_code=status.HTTP_201_CREATED)
 async def create_policy(p: PolicyCreate, db: AsyncSession = Depends(get_db)):
     if p.temperature_min_c >= p.temperature_max_c: raise HTTPException(422, "minimum must be below maximum")
