@@ -20,6 +20,9 @@ product-release decisions.
 
 Run tests with `.venv\\Scripts\\python -m pytest`.
 
+To run the API and PostgreSQL together in containers, use `docker compose up --build`. The API
+is then available at `http://localhost:8000` and its OpenAPI UI at `http://localhost:8000/docs`.
+
 ## Current endpoints
 
 - `GET /health/live` confirms the process is alive.
