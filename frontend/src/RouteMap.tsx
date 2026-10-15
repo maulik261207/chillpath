@@ -122,7 +122,7 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
   const resetView = () => setViewport({ x: 0, y: 0, scale: 1 });
   return <section className={`landing-map ${hero ? 'landing-map-hero' : ''}`} id="route-map">
     <div className="map-copy">
-      <div className="eyebrow">LIVE ROUTE PLANNING</div>
+
       <h2>Plan the clearest route.<br/><span>Keep shipments moving.</span></h2>
       <p>Choose how the shipment travels and see its route, distance and travel time. The map stays connected to the backend so provider details remain private.</p>
       <label className="map-mode-select"><span>HOW IT TRAVELS</span><div>{modeIcon(selected?.category)}<select value={mode} onChange={event => setMode(event.target.value as TravelMode)}>{modes.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div></label>
