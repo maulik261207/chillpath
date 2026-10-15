@@ -11,3 +11,7 @@ frontend/dist/
 frontend/.vite/
 *.egg-info/
 *.tsbuildinfo
+
+# Firmware build artifacts
+.pio/
+.vscode/
