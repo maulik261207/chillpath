@@ -7,9 +7,22 @@ from app.models.billing import UsageLedger
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
+@router.get("/plans")
+async def plans() -> dict:
+    return {"mock": True, "plans": [
+        {"code": "starter", "monthly_price_minor": 199900, "currency": "INR", "tracked_shipments": 50},
+        {"code": "growth", "monthly_price_minor": 699900, "currency": "INR", "tracked_shipments": 500},
+        {"code": "enterprise", "monthly_price_minor": None, "currency": "INR", "tracked_shipments": None},
+    ]}
+
 @router.post("/usage")
 async def record_usage(organization_id: UUID, usage_type: str, dedupe_key: str, quantity: int = 1, db: AsyncSession = Depends(get_db)):
     existing = await db.scalar(select(UsageLedger).where(UsageLedger.organization_id == organization_id, UsageLedger.usage_type == usage_type, UsageLedger.dedupe_key == dedupe_key))
     if existing: return {"status": "duplicate", "id": existing.id}
     row = UsageLedger(organization_id=organization_id, usage_type=usage_type, dedupe_key=dedupe_key, quantity=quantity)
     db.add(row); await db.commit(); await db.refresh(row); return {"status": "recorded", "id": row.id, "mock": True}
+
+@router.get("/usage")
+async def usage(organization_id: UUID, limit: int = 100, db: AsyncSession = Depends(get_db)):
+    rows = (await db.scalars(select(UsageLedger).where(UsageLedger.organization_id == organization_id).order_by(UsageLedger.measured_at.desc()).limit(min(limit, 500)))).all()
+    return {"mock": True, "items": rows}
