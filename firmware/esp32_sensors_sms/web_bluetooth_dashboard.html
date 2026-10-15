@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32-S3 Bluetooth Sensor Dashboard</title>
+  <title>ESP32 Bluetooth to Web Cloud Gateway</title>
   <style>
     :root {
       --bg: #090d16;
@@ -21,31 +21,31 @@
       background: var(--bg);
       color: var(--text);
       margin: 0;
-      padding: 20px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
-    .container { width: 100%; max-width: 580px; }
-    h1 { color: #38bdf8; text-align: center; margin-bottom: 6px; font-size: 1.6rem; }
-    p.subtitle { text-align: center; color: #94a3b8; margin-top: 0; margin-bottom: 20px; font-size: 0.9rem; }
+    .container { width: 100%; max-width: 620px; }
+    h1 { color: #38bdf8; text-align: center; margin-bottom: 4px; font-size: 1.5rem; }
+    p.subtitle { text-align: center; color: #94a3b8; margin-top: 0; margin-bottom: 16px; font-size: 0.88rem; }
     .card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 18px 22px;
+      padding: 16px 20px;
       margin-bottom: 16px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
-    .card h3 { margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; color: #cbd5e1; font-size: 1.1rem; }
+    .card h3 { margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; color: #cbd5e1; font-size: 1.05rem; }
     .btn {
       background: var(--accent-grad);
       color: #fff;
       border: none;
-      padding: 12px 18px;
+      padding: 12px 16px;
       border-radius: 8px;
       font-weight: 600;
-      font-size: 1rem;
+      font-size: 0.95rem;
       cursor: pointer;
       width: 100%;
       transition: opacity 0.2s;
@@ -57,22 +57,23 @@
     .btn:hover { opacity: 0.9; }
     .btn-secondary { background: #334155; }
     .btn-danger { background: #dc2626; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .btn-success { background: #059669; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
     .stat-box {
       background: #090d16;
       border: 1px solid #1e293b;
       border-radius: 8px;
-      padding: 14px;
+      padding: 12px;
       text-align: center;
     }
-    .stat-val { font-size: 1.5rem; font-weight: 700; color: #38bdf8; }
-    .stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-top: 4px; }
+    .stat-val { font-size: 1.4rem; font-weight: 700; color: #38bdf8; }
+    .stat-label { font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; margin-top: 4px; }
     .badge {
       display: inline-block;
-      padding: 4px 10px;
+      padding: 3px 8px;
       border-radius: 999px;
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       font-weight: 600;
     }
     .badge-ok { background: rgba(16,185,129,0.18); color: #10b981; border: 1px solid #10b981; }
@@ -85,35 +86,125 @@
       border-radius: 8px;
       padding: 10px;
       font-family: monospace;
-      font-size: 0.8rem;
-      height: 120px;
+      font-size: 0.78rem;
+      height: 110px;
       overflow-y: auto;
       color: #38bdf8;
       white-space: pre-wrap;
     }
-    .status-bar {
+    .status-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
-      font-size: 0.88rem;
+      margin-bottom: 10px;
+      font-size: 0.85rem;
+    }
+    input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px;
+      background: #090d16;
+      border: 1px solid #334155;
+      color: #fff;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      margin-top: 4px;
+      margin-bottom: 8px;
+    }
+    .mode-tab {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 8px;
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #090d16;
+      border-color: var(--accent);
+    }
+    .api-preview {
+      background: #0b1120;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: #cbd5e1;
+      word-break: break-all;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>ESP32-S3 Bluetooth Monitor</h1>
-    <p class="subtitle">Direct Wireless Bluetooth Low Energy (BLE) Telemetry</p>
+    <h1>ESP32 Phone-to-Web Gateway</h1>
+    <p class="subtitle">ESP32 &rarr; Bluetooth &rarr; Phone &rarr; Internet &rarr; Web API</p>
 
-    <!-- Connection Card -->
-    <div class="card">
-      <div class="status-bar">
-        <span>Bluetooth Status:</span>
-        <span id="bleStatus" class="badge badge-off">DISCONNECTED</span>
+    <!-- Tab mode selector -->
+    <div class="mode-tab">
+      <div id="tabGateway" class="tab-btn active" onclick="switchMode('gateway')">
+        📱 Phone Gateway (BLE &rarr; Web)
       </div>
-      <button id="connectBtn" class="btn" onclick="toggleConnect()">
-        <span>📡</span> Connect to ESP32 via Bluetooth
-      </button>
+      <div id="tabWebsite" class="tab-btn" onclick="switchMode('website')">
+        🌐 Website Viewer (Web API &rarr; UI)
+      </div>
+    </div>
+
+    <!-- Section A: Phone Gateway Mode -->
+    <div id="gatewaySection">
+      <div class="card">
+        <h3>1. Bluetooth Connection (to ESP32)</h3>
+        <div class="status-row">
+          <span>Bluetooth Status:</span>
+          <span id="bleStatus" class="badge badge-off">DISCONNECTED</span>
+        </div>
+        <button id="connectBtn" class="btn" onclick="toggleBleConnect()">
+          <span>📡</span> Connect to ESP32 (Bluetooth)
+        </button>
+      </div>
+
+      <div class="card">
+        <h3>2. Web API Cloud Forwarding</h3>
+        <label style="font-size: 0.8rem; color: #94a3b8;">Target API Endpoint (POST live telemetry):</label>
+        <input type="text" id="apiEndpoint" value="http://localhost:8000/v1/telemetry/live" placeholder="http://<SERVER-IP>:8000/v1/telemetry/live">
+        
+        <div class="status-row">
+          <span>Forwarding Status:</span>
+          <span id="forwardStatus" class="badge badge-ok">ENABLED</span>
+        </div>
+        <div class="status-row" style="color: #94a3b8; font-size: 0.8rem;">
+          <span>Packets Sent to Cloud:</span>
+          <strong id="sentCount" style="color: #38bdf8;">0</strong>
+        </div>
+        <div class="status-row" style="color: #94a3b8; font-size: 0.8rem;">
+          <span>Last API Response:</span>
+          <span id="apiResponse" style="color: #cbd5e1;">Waiting for data...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section B: Website Viewer Mode -->
+    <div id="websiteSection" style="display: none;">
+      <div class="card">
+        <h3>Cloud API Fetcher</h3>
+        <label style="font-size: 0.8rem; color: #94a3b8;">API Endpoint (GET live data):</label>
+        <input type="text" id="apiGetEndpoint" value="http://localhost:8000/v1/telemetry/live">
+        <button class="btn btn-secondary" onclick="fetchFromApi()">🔄 Refresh Now</button>
+        <div class="status-row" style="margin-top: 10px;">
+          <span>Cloud Stream Status:</span>
+          <span id="cloudStatus" class="badge badge-off">OFFLINE</span>
+        </div>
+      </div>
     </div>
 
     <!-- Live Telemetry Card -->
@@ -121,59 +212,73 @@
       <h3>Live Sensor Telemetry</h3>
       <div class="grid-2">
         <div class="stat-box">
-          <div class="stat-val" id="tempC">--.- &deg;C</div>
+          <div class="stat-val" id="dispTemp">--.- &deg;C</div>
           <div class="stat-label">Temperature</div>
         </div>
         <div class="stat-box">
-          <div class="stat-val" id="tempF">--.- &deg;F</div>
+          <div class="stat-val" id="dispTempF">--.- &deg;F</div>
           <div class="stat-label">Fahrenheit</div>
         </div>
       </div>
       <div class="grid-3">
         <div class="stat-box">
-          <div class="stat-val" id="aoMv" style="font-size: 1.2rem;">-- mV</div>
+          <div class="stat-val" id="dispAo" style="font-size: 1.15rem;">-- mV</div>
           <div class="stat-label">AO (GPIO 4)</div>
         </div>
         <div class="stat-box">
-          <div class="stat-val" id="doState">--</div>
+          <div class="stat-val" id="dispDo">--</div>
           <div class="stat-label">DO (GPIO 5)</div>
         </div>
         <div class="stat-box">
-          <div class="stat-val" id="buzzerState">--</div>
+          <div class="stat-val" id="dispBuzzer">--</div>
           <div class="stat-label">Buzzer (GPIO 6)</div>
         </div>
       </div>
+      <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 0.8rem; color: #94a3b8;">
+        <span>Alarm State: <span id="dispAlarm" class="badge badge-ok">NORMAL</span></span>
+        <span id="dispLastSeen">Waiting...</span>
+      </div>
     </div>
 
-    <!-- Controls Card -->
-    <div class="card">
-      <h3>Buzzer Control (over Bluetooth)</h3>
+    <!-- Quick Controls Card (Over BLE) -->
+    <div class="card" id="controlCard">
+      <h3>Remote Buzzer Controls</h3>
       <div class="grid-2">
-        <button class="btn btn-secondary" onclick="sendCommand('TEST BUZZER')">🔊 Test Buzzer (3s)</button>
-        <button class="btn btn-secondary" onclick="sendCommand('MUTE')">🔕 Mute Buzzer</button>
-      </div>
-      <div class="grid-2" style="margin-top: 10px;">
-        <button class="btn btn-secondary" onclick="sendCommand('UNMUTE')">🔔 Unmute Buzzer</button>
-        <button class="btn btn-secondary" onclick="sendCommand('STATUS')">📊 Query Status</button>
+        <button class="btn btn-secondary" onclick="sendBleCmd('TEST BUZZER')">🔊 Test Buzzer (3s)</button>
+        <button class="btn btn-secondary" onclick="sendBleCmd('MUTE')">🔕 Mute Buzzer</button>
       </div>
     </div>
 
-    <!-- Live Stream Log -->
+    <!-- API Reference for Your Website -->
     <div class="card">
-      <h3>Bluetooth Data Stream</h3>
-      <div class="log-box" id="logBox">Waiting for connection... Click "Connect to ESP32 via Bluetooth" above.</div>
+      <h3>API for Your Website</h3>
+      <p style="font-size: 0.8rem; color: #94a3b8; margin: 0 0 6px 0;">
+        Any website can query the latest live sensor readings using this standard REST API:
+      </p>
+      <div class="api-preview">
+        GET http://localhost:8000/v1/telemetry/live
+      </div>
+    </div>
+
+    <!-- Log Box -->
+    <div class="card">
+      <h3>Gateway Activity Log</h3>
+      <div class="log-box" id="logBox">Gateway initialized. Tap "Connect to ESP32 (Bluetooth)" to begin.</div>
     </div>
   </div>
 
   <script>
     const BLE_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-    const BLE_CHAR_RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // Browser write to ESP32
-    const BLE_CHAR_TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // ESP32 notify to Browser
+    const BLE_CHAR_RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // Phone write to ESP32
+    const BLE_CHAR_TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // ESP32 notify to Phone
 
     let bleDevice = null;
     let bleServer = null;
     let txChar = null;
     let rxChar = null;
+    let packetsForwarded = 0;
+    let currentMode = 'gateway';
+    let apiPollTimer = null;
 
     function log(msg) {
       const el = document.getElementById('logBox');
@@ -181,23 +286,39 @@
       el.textContent = `[${time}] ${msg}\n` + el.textContent;
     }
 
-    async function toggleConnect() {
-      if (bleDevice && bleDevice.gatt.connected) {
-        disconnect();
+    function switchMode(mode) {
+      currentMode = mode;
+      document.getElementById('tabGateway').className = 'tab-btn' + (mode === 'gateway' ? ' active' : '');
+      document.getElementById('tabWebsite').className = 'tab-btn' + (mode === 'website' ? ' active' : '');
+      document.getElementById('gatewaySection').style.display = (mode === 'gateway') ? 'block' : 'none';
+      document.getElementById('websiteSection').style.display = (mode === 'website') ? 'block' : 'none';
+      document.getElementById('controlCard').style.display = (mode === 'gateway') ? 'block' : 'none';
+
+      if (mode === 'website') {
+        fetchFromApi();
+        if (!apiPollTimer) apiPollTimer = setInterval(fetchFromApi, 1500);
       } else {
-        connect();
+        if (apiPollTimer) { clearInterval(apiPollTimer); apiPollTimer = null; }
       }
     }
 
-    async function connect() {
+    async function toggleBleConnect() {
+      if (bleDevice && bleDevice.gatt.connected) {
+        bleDevice.gatt.disconnect();
+      } else {
+        connectBle();
+      }
+    }
+
+    async function connectBle() {
       try {
-        log("Requesting Bluetooth device...");
+        log("Searching for ESP32 Bluetooth device...");
         bleDevice = await navigator.bluetooth.requestDevice({
           filters: [{ namePrefix: "ESP32" }],
           optionalServices: [BLE_SERVICE_UUID]
         });
 
-        bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+        bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
         log(`Connecting to ${bleDevice.name}...`);
         
         bleServer = await bleDevice.gatt.connect();
@@ -207,77 +328,144 @@
         rxChar = await service.getCharacteristic(BLE_CHAR_RX_UUID);
 
         await txChar.startNotifications();
-        txChar.addEventListener('characteristicvaluechanged', handleNotifications);
+        txChar.addEventListener('characteristicvaluechanged', handleBleIncoming);
 
         document.getElementById('bleStatus').className = 'badge badge-ok';
         document.getElementById('bleStatus').innerText = 'CONNECTED';
         document.getElementById('connectBtn').innerHTML = '<span>🔌</span> Disconnect Bluetooth';
         document.getElementById('connectBtn').className = 'btn btn-danger';
-        log("Connected! Receiving live sensor telemetry...");
+        log("Bluetooth Connected! Streaming to Cloud API...");
       } catch (err) {
-        log("Connection error: " + err);
+        log("Bluetooth Error: " + err);
         console.error(err);
       }
     }
 
-    function disconnect() {
-      if (bleDevice && bleDevice.gatt.connected) {
-        bleDevice.gatt.disconnect();
-      }
-    }
-
-    function onDisconnected() {
+    function onBleDisconnected() {
       document.getElementById('bleStatus').className = 'badge badge-off';
       document.getElementById('bleStatus').innerText = 'DISCONNECTED';
-      document.getElementById('connectBtn').innerHTML = '<span>📡</span> Connect to ESP32 via Bluetooth';
+      document.getElementById('connectBtn').innerHTML = '<span>📡</span> Connect to ESP32 (Bluetooth)';
       document.getElementById('connectBtn').className = 'btn';
-      log("Bluetooth device disconnected.");
+      log("Bluetooth disconnected.");
     }
 
-    function handleNotifications(event) {
-      const value = new TextDecoder().decode(event.target.value);
-      log("RX: " + value.trim());
+    function handleBleIncoming(event) {
+      const text = new TextDecoder().decode(event.target.value);
+      log("BLE RX: " + text.trim());
 
-      // Try to parse JSON or text
-      if (value.startsWith('{')) {
+      let payload = {
+        device_id: "esp32-s3-temp-01",
+        temperature_c: 25.0,
+        temperature_f: 77.0,
+        adc_mv: 1650,
+        voltage: 1.65,
+        do_tripped: false,
+        buzzer_active: false,
+        alarm_active: false,
+        source: "phone_ble_gateway"
+      };
+
+      if (text.startsWith('{')) {
         try {
-          const d = JSON.parse(value);
-          document.getElementById('tempC').innerText = d.temp.toFixed(1) + ' °C';
-          document.getElementById('tempF').innerText = d.tempF.toFixed(1) + ' °F';
-          document.getElementById('aoMv').innerText = d.adcMv + ' mV';
-          document.getElementById('doState').innerHTML = d.doTripped 
-            ? '<span class="badge badge-danger">TRIPPED</span>' 
-            : '<span class="badge badge-ok">NORMAL</span>';
-          document.getElementById('buzzerState').innerHTML = d.buzzer 
-            ? '<span class="badge badge-danger">BEEPING</span>' 
-            : '<span class="badge badge-ok">SILENT</span>';
+          const d = JSON.parse(text);
+          payload.temperature_c = d.temp;
+          payload.temperature_f = d.tempF;
+          payload.adc_mv = d.adcMv;
+          payload.voltage = (d.adcMv / 1000.0);
+          payload.do_tripped = d.doTripped;
+          payload.buzzer_active = d.buzzer;
+          payload.alarm_active = d.alarm;
         } catch (e) {}
       } else {
-        // Parse key-value text like: Temp: 26.5C (79.7F) | AO: 1640mV | DO: NORMAL | Buzzer: SILENT
-        const tempMatch = value.match(/Temp:\s*([\d.]+)\s*C/);
-        if (tempMatch) document.getElementById('tempC').innerText = parseFloat(tempMatch[1]).toFixed(1) + ' °C';
+        // Parse regex from plain text: Temp: 26.5C (79.7F) | AO: 1640mV | DO: NORMAL | Buzzer: SILENT
+        const tempMatch = text.match(/Temp:\s*([\d.]+)\s*C/);
+        if (tempMatch) payload.temperature_c = parseFloat(tempMatch[1]);
 
-        const fMatch = value.match(/\(([\d.]+)\s*F\)/);
-        if (fMatch) document.getElementById('tempF').innerText = parseFloat(fMatch[1]).toFixed(1) + ' °F';
+        const fMatch = text.match(/\(([\d.]+)\s*F\)/);
+        if (fMatch) payload.temperature_f = parseFloat(fMatch[1]);
 
-        const aoMatch = value.match(/AO:\s*(\d+)\s*mV/);
-        if (aoMatch) document.getElementById('aoMv').innerText = aoMatch[1] + ' mV';
-
-        if (value.includes("DO: TRIPPED")) {
-          document.getElementById('doState').innerHTML = '<span class="badge badge-danger">TRIPPED</span>';
-        } else if (value.includes("DO: NORMAL")) {
-          document.getElementById('doState').innerHTML = '<span class="badge badge-ok">NORMAL</span>';
+        const aoMatch = text.match(/AO:\s*(\d+)\s*mV/);
+        if (aoMatch) {
+          payload.adc_mv = parseInt(aoMatch[1]);
+          payload.voltage = payload.adc_mv / 1000.0;
         }
 
-        if (value.includes("Buzzer: BEEPING")) {
-          document.getElementById('buzzerState').innerHTML = '<span class="badge badge-danger">BEEPING</span>';
+        payload.do_tripped = text.includes("DO: TRIPPED");
+        payload.buzzer_active = text.includes("Buzzer: BEEPING");
+        payload.alarm_active = text.includes("ALARM");
+      }
+
+      updateUiDisplay(payload);
+      forwardToCloudApi(payload);
+    }
+
+    function updateUiDisplay(d) {
+      document.getElementById('dispTemp').innerText = d.temperature_c.toFixed(1) + ' °C';
+      document.getElementById('dispTempF').innerText = (d.temperature_f || ((d.temperature_c * 9/5) + 32)).toFixed(1) + ' °F';
+      document.getElementById('dispAo').innerText = (d.adc_mv || 0) + ' mV';
+      document.getElementById('dispDo').innerHTML = d.do_tripped 
+        ? '<span class="badge badge-danger">TRIPPED</span>' 
+        : '<span class="badge badge-ok">NORMAL</span>';
+      document.getElementById('dispBuzzer').innerHTML = d.buzzer_active 
+        ? '<span class="badge badge-danger">BEEPING</span>' 
+        : '<span class="badge badge-ok">SILENT</span>';
+      
+      const alarmEl = document.getElementById('dispAlarm');
+      if (d.alarm_active) {
+        alarmEl.className = 'badge badge-danger';
+        alarmEl.innerText = 'ALARM!';
+      } else {
+        alarmEl.className = 'badge badge-ok';
+        alarmEl.innerText = 'NORMAL';
+      }
+      document.getElementById('dispLastSeen').innerText = 'Updated: ' + new Date().toLocaleTimeString();
+    }
+
+    async function forwardToCloudApi(payload) {
+      const endpoint = document.getElementById('apiEndpoint').value.trim();
+      if (!endpoint) return;
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          packetsForwarded++;
+          document.getElementById('sentCount').innerText = packetsForwarded;
+          document.getElementById('apiResponse').innerText = 'HTTP 200 OK (' + new Date().toLocaleTimeString() + ')';
         } else {
-          document.getElementById('buzzerState').innerHTML = '<span class="badge badge-ok">SILENT</span>';
+          document.getElementById('apiResponse').innerText = 'HTTP Error: ' + res.status;
         }
+      } catch (err) {
+        document.getElementById('apiResponse').innerText = 'Fetch error: ' + err.message;
       }
     }
 
-    async function sendCommand(cmd) {
+    async function fetchFromApi() {
+      const endpoint = document.getElementById('apiGetEndpoint').value.trim();
+      try {
+        const res = await fetch(endpoint);
+        const json = await res.json();
+        const statusEl = document.getElementById('cloudStatus');
+        
+        if (json.online && json.data) {
+          statusEl.className = 'badge badge-ok';
+          statusEl.innerText = 'ONLINE (' + json.seconds_since_last_packet + 's ago)';
+          updateUiDisplay(json.data);
+        } else {
+          statusEl.className = 'badge badge-warn';
+          statusEl.innerText = json.online ? 'ONLINE' : 'OFFLINE (No Data)';
+        }
+      } catch (err) {
+        document.getElementById('cloudStatus').className = 'badge badge-danger';
+        document.getElementById('cloudStatus').innerText = 'API UNREACHABLE';
+      }
+    }
+
+    async function sendBleCmd(cmd) {
       if (!rxChar) {
         alert("Please connect via Bluetooth first!");
         return;
@@ -285,10 +473,17 @@
       try {
         const encoder = new TextEncoder();
         await rxChar.writeValue(encoder.encode(cmd + "\n"));
-        log("TX: " + cmd);
+        log("BLE TX: " + cmd);
       } catch (err) {
-        log("TX Error: " + err);
+        log("BLE TX Error: " + err);
       }
+    }
+
+    // Default API URL helper based on current host
+    if (window.location.hostname && window.location.hostname !== "") {
+      const defaultHost = "http://" + window.location.hostname + ":8000/v1/telemetry/live";
+      document.getElementById('apiEndpoint').value = defaultHost;
+      document.getElementById('apiGetEndpoint').value = defaultHost;
     }
   </script>
 </body>

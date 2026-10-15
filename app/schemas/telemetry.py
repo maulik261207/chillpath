@@ -19,3 +19,18 @@ class TelemetryItem(BaseModel):
 
 class TelemetryBatch(BaseModel):
     events: list[TelemetryItem] = Field(min_length=1, max_length=500)
+
+
+class LiveTelemetryItem(BaseModel):
+    device_id: str = "esp32-s3-temp-01"
+    temperature_c: float
+    temperature_f: float | None = None
+    adc_mv: int | None = None
+    voltage: float | None = None
+    do_tripped: bool | None = False
+    buzzer_active: bool | None = False
+    alarm_active: bool | None = False
+    battery_pct: float | None = None
+    observed_at: datetime | None = None
+    source: str = "phone_ble_gateway"
+

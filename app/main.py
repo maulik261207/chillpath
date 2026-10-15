@@ -67,3 +67,14 @@ async def ready() -> dict[str, str]:
         await connection.execute(text("SELECT 1"))
     return {"status": "ok", "database": "ok"}
 
+
+@app.get("/gateway", tags=["gateway"])
+async def phone_bluetooth_gateway():
+    from pathlib import Path
+    from fastapi.responses import FileResponse, HTMLResponse
+    path = Path(__file__).resolve().parent.parent / "firmware" / "esp32_sensors_sms" / "web_bluetooth_dashboard.html"
+    if path.exists():
+        return FileResponse(path, media_type="text/html")
+    return HTMLResponse("<h3>Gateway HTML not found</h3>", status_code=404)
+
+
