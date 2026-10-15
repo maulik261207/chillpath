@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import text
 
 from app.core.config import get_settings
@@ -18,6 +19,8 @@ from app.api.recovery import router as recovery_router
 from app.api.devices import router as devices_router
 from app.api.maps import router as maps_router
 from app.api.engines import router as engines_router
+from app.api.road_intelligence import router as road_intelligence_router
+from app.api.shipment_route_context import router as shipment_route_context_router
 from app.db.base import Base
 from app.db.session import engine
 import app.models  # noqa: F401 — register every model in SQLAlchemy metadata.
@@ -34,6 +37,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_exception_handler(Exception, unhandled_error_handler)
 app.add_exception_handler(HTTPException, http_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
@@ -48,6 +52,8 @@ app.include_router(recovery_router, prefix=settings.api_prefix)
 app.include_router(devices_router, prefix=settings.api_prefix)
 app.include_router(maps_router, prefix=settings.api_prefix)
 app.include_router(engines_router, prefix=settings.api_prefix)
+app.include_router(road_intelligence_router, prefix=settings.api_prefix)
+app.include_router(shipment_route_context_router, prefix=settings.api_prefix)
 
 
 @app.get("/health/live", tags=["health"])

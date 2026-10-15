@@ -10,9 +10,9 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 @router.get("/plans")
 async def plans() -> dict:
     return {"mock": True, "plans": [
-        {"code": "starter", "monthly_price_minor": 199900, "currency": "INR", "tracked_shipments": 50},
-        {"code": "growth", "monthly_price_minor": 699900, "currency": "INR", "tracked_shipments": 500},
-        {"code": "enterprise", "monthly_price_minor": None, "currency": "INR", "tracked_shipments": None},
+        {"code": "user", "price_minor": 1000000, "billing_period": "one_time", "currency": "INR"},
+        {"code": "industry_collaboration", "price_minor": 10000000, "billing_period": "collaboration", "currency": "INR"},
+        {"code": "subscription", "price_minor": 500000, "billing_period": "month", "minimum_months": 10, "minimum_commitment_minor": 5000000, "currency": "INR"},
     ]}
 
 @router.post("/usage")

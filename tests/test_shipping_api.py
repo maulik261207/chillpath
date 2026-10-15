@@ -38,6 +38,7 @@ def test_demo_organization_can_create_and_list_policy_and_shipment():
         detail = client.get(f"/v1/shipments/{shipment.json()['id']}", params={"organization_id": organization_id})
         recovery = client.get(f"/v1/shipments/{shipment.json()['id']}/recovery", params={"organization_id": organization_id})
         timeline = client.get(f"/v1/shipments/{shipment.json()['id']}/timeline", params={"organization_id": organization_id})
+        route_condition = client.get(f"/v1/shipments/{shipment.json()['id']}/route-condition", params={"organization_id": organization_id})
         assert detail.status_code == 200
         assert detail.json()["external_ref"] == f"CP-{suffix}"
         assert recovery.status_code == 200
@@ -45,6 +46,8 @@ def test_demo_organization_can_create_and_list_policy_and_shipment():
         assert all(item["approval_status"] == "pending" for item in recovery.json()["recommendations"])
         assert timeline.status_code == 200
         assert timeline.json()["items"] == []
+        assert route_condition.status_code == 200
+        assert route_condition.json()["condition"] is None
 
         shipment_list = client.get("/v1/shipments", params={"organization_id": organization_id})
         policy_list = client.get("/v1/product-policies", params={"organization_id": organization_id})

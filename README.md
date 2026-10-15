@@ -12,7 +12,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. The demo includes a Geoapify-backed landing-page route map, operations dashboard, connected engine control center, searchable shipment list and detail, recovery suggestions, traceability export, and a deterministic scenario lab with offline buffering and a guided walkthrough.
+Open `http://localhost:5173`. The demo includes a Geoapify-backed Bengaluru–Mysuru landing-page route map, operations dashboard, connected engine control center, searchable shipment list and detail, recovery suggestions, traceability export, and a deterministic scenario lab with offline buffering and a guided walkthrough.
 
 Build and run the frontend tests:
 
@@ -92,3 +92,71 @@ The route endpoints return GeoJSON geometry, distance, duration, instructions, a
 transport mode. Reroute options are ranked by duration and then distance. This ranking does not
 claim that roads are obstacle-free; verified live obstacle data would require an additional data
 source.
+
+## Route Intelligence: India and Bengaluru
+
+The landing page links to development sign-in (`/login`), registration
+(`/signup`), and billing (`/billing`). The first two forms call the existing
+development auth endpoints. Login currently does not establish a durable or
+authorized session; the dashboard remains a demo until production identity
+and tenant enforcement are implemented. Billing lists User (₹10,000), Industry
+collaboration (₹1,00,000), and Subscription (₹5,000 per month, minimum ten
+months/₹50,000). The billing API returns these informational plans; no payment
+or subscription activation is performed.
+
+In Bengaluru city mode, origin and destination are chosen through the existing
+Geoapify address autocomplete endpoint. Selected addresses are snapped to the
+cached driving graph within 350 m; addresses outside coverage are rejected.
+Geoapify must be configured on the backend for address search. Geographic
+coordinates are internal to route computation and are not shown in the form.
+
+Start the API and frontend as above, then open `/route-intelligence`. Copy
+`frontend/.env.example` to `frontend/.env.local` and set `VITE_MAPTILER_API_KEY`
+to your MapTiler browser key. Restrict that key to the origins used for the demo.
+The local env file is ignored by Git. MapTiler supplies the dark vector basemap;
+the Python API does the routing. Map tiles still require internet access.
+
+The bundled `data/bengaluru_centre.json` is a versioned, compact directed road
+graph derived from an OpenStreetMap XML extract via OSMnx. Its coverage is a
+small central Bengaluru area, not the full city. The preprocessing script
+`scripts/prepare_bengaluru_graph.py` can refresh it from a local
+`data/bengaluru_centre.osm` extract, a cached GraphML file, or OSMnx/Overpass.
+GraphML/XML caches are ignored by Git. Preprocessing retains the largest weakly
+connected driving component and records the count of dropped nodes. The API
+never calls Overpass for a route request. Regenerating the graph changes its
+version; restart the API and reload the page together.
+
+City mode snaps selected points within 350 m of a supported driving node. It
+runs a directed, instrumented Dijkstra search with distance or estimated-time
+weights; the latter uses OSM speed tags when valid and 30 km/h otherwise.
+The map shows the resulting route, without exposing the search animation or
+algorithm internals in the interface. Cold-chain priority is the default:
+fresh, credible temperature or policy-defined humidity excursions use estimated
+travel time, while normal conditions use road distance. Vibration breaches are
+flagged for review because this graph has no road-smoothness weights. Explicit distance and time choices remain
+available. A clicked road closure excludes its directed edges from the next
+search. Simulated traffic adds a fourfold penalty to selected previous route
+edges. The shipment telemetry and India corridors shown on this page are
+explicitly labeled demonstrations; India corridors are geographic guides, not
+nationwide computed routes or live GPS. No verified cold-storage or receiving
+facility is configured, so facility rerouting is deliberately unavailable.
+
+The route API accepts a typed condition snapshot containing temperature,
+humidity, vibration, evidence state, product limits, and remaining exposure
+budget. The route decision reports which signals could be evaluated and which
+lacked readings or policy thresholds; it never invents humidity or vibration
+limits. `GET /v1/shipments/{id}/route-condition?organization_id=...` builds this
+snapshot from stored telemetry and product policy. When connected shipment
+mode is configured, Route Intelligence can select a stored shipment and use
+its latest condition snapshot. Road endpoints remain operator selected until
+verified geocoordinates and route assignments are stored for those shipments.
+
+The route API is under `/v1/maps`: `GET /regions`,
+`GET /regions/bengaluru_centre`, `GET /regions/bengaluru_centre/graph`,
+`POST /dijkstra`, `POST /recalculate`, and `POST /assess-conditions`.
+Paginated `GET /searches/{search_id}/events` remains available for diagnostics;
+the user interface does not load it. For automated backend tests, use a fresh
+SQLite database, for example
+`DATABASE_URL=sqlite+aiosqlite:////private/tmp/chillpath-test.db pytest`.
+The older local `chillpath.db` may predate the current telemetry schema; schema
+migrations are not yet part of this prototype.

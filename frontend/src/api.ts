@@ -35,10 +35,10 @@ export type MapRoute = {
   provider: 'geoapify';
 };
 
-export function getRoute(waypoints: MapCoordinate[], mode: TravelMode = 'drive') {
+export function getRoute(waypoints: MapCoordinate[], mode: TravelMode = 'drive', alternatives = 1) {
   return api<{ routes: MapRoute[] }>('/maps/route', {
     method: 'POST',
-    body: JSON.stringify({ waypoints, mode }),
+    body: JSON.stringify({ waypoints, mode, alternatives }),
   });
 }
 

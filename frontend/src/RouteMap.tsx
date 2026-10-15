@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Bus, MapPin, Navigation, RefreshCw, Route, Truck } from 'lucide-react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { ArrowRight, Bus, LocateFixed, Minus, Navigation, Plus, RefreshCw, Route, Truck } from 'lucide-react';
 import { getRoute, getTransportModes, mapTileUrl, type MapRoute, type TravelMode } from './api';
 
-const ORIGIN = { latitude: 47.5596, longitude: 7.5886 };
-const DESTINATION = { latitude: 55.6761, longitude: 12.5683 };
-const ZOOM = 5;
+const ORIGIN = { latitude: 12.9716, longitude: 77.5946 };
+const DESTINATION = { latitude: 12.2958, longitude: 76.6394 };
+const ZOOM = 9;
 const WIDTH = 1000;
-const HEIGHT = 440;
+const HEIGHT = 580;
 const TILE = 256;
+const ROUTE_SEARCH_ANIMATION_MS = 4600;
 
 type ModeItem = { id: TravelMode; label: string; category: string };
 type Point = [number, number];
@@ -28,11 +29,8 @@ function routeCoordinates(route?: MapRoute): Point[] {
   const points = geometry.type === 'LineString'
     ? geometry.coordinates as Point[]
     : geometry.type === 'MultiLineString' ? (geometry.coordinates as Point[][]).flat() : [];
-  if (points.length <= 800) return points;
-  const step = Math.ceil(points.length / 800);
-  const reduced = points.filter((_, index) => index % step === 0);
-  if (reduced.at(-1) !== points.at(-1)) reduced.push(points.at(-1)!);
-  return reduced;
+  // Preserve road bends and junctions even when the map is zoomed in.
+  return points;
 }
 
 function modeIcon(category?: string) {
@@ -44,10 +42,12 @@ function modeIcon(category?: string) {
 export default function RouteMap({ hero = false }: { hero?: boolean }) {
   const [modes, setModes] = useState<ModeItem[]>([]);
   const [mode, setMode] = useState<TravelMode>('light_truck');
-  const [route, setRoute] = useState<MapRoute>();
+  const [routes, setRoutes] = useState<MapRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tilesUnavailable, setTilesUnavailable] = useState(false);
+  const [viewport, setViewport] = useState({ x: 0, y: 0, scale: 1 });
+  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     getTransportModes().then(result => setModes(result.items)).catch(() => setModes([
@@ -59,17 +59,29 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
 
   useEffect(() => {
     let active = true;
+    let settleTimer: number | undefined;
     setLoading(true);
     setError('');
-    getRoute([ORIGIN, DESTINATION], mode).then(result => {
-      if (active) setRoute(result.routes[0]);
+    setRoutes([]);
+    getRoute([ORIGIN, DESTINATION], mode, 3).then(result => {
+      if (!active) return;
+      {
+        const ranked = result.routes
+          .filter(item => item.geometry && typeof item.distance_m === 'number')
+          .sort((a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity));
+        setRoutes(ranked);
+      }
+      // Start the exploration clock once road geometry arrives, not at request time.
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      settleTimer = window.setTimeout(() => { if (active) setLoading(false); }, reducedMotion ? 0 : ROUTE_SEARCH_ANIMATION_MS);
     }).catch(cause => {
       if (active) {
-        setRoute(undefined);
+        setRoutes([]);
         setError(cause instanceof Error ? cause.message : 'Route service unavailable');
+        setLoading(false);
       }
-    }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+    });
+    return () => { active = false; if (settleTimer !== undefined) window.clearTimeout(settleTimer); };
   }, [mode]);
 
   const map = useMemo(() => {
@@ -84,19 +96,30 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
     const centerTileY = Math.floor(center[1] / TILE);
     const tiles = [];
     for (let x = centerTileX - 2; x <= centerTileX + 2; x += 1) {
-      for (let y = centerTileY - 1; y <= centerTileY + 1; y += 1) {
+      for (let y = centerTileY - 2; y <= centerTileY + 1; y += 1) {
         tiles.push({ x, y, left: x * TILE - center[0] + WIDTH / 2, top: y * TILE - center[1] + HEIGHT / 2 });
       }
     }
-    const coordinates = routeCoordinates(route);
-    const line = (coordinates.length ? coordinates : [[ORIGIN.longitude, ORIGIN.latitude], [DESTINATION.longitude, DESTINATION.latitude]] as Point[]).map(project);
-    return { tiles, line, origin: project([ORIGIN.longitude, ORIGIN.latitude]), destination: project([DESTINATION.longitude, DESTINATION.latitude]) };
-  }, [route]);
+    const paths = routes.map(candidate => routeCoordinates(candidate).map(project)).filter(points => points.length > 1);
+    return {
+      tiles,
+      paths,
+      origin: project([ORIGIN.longitude, ORIGIN.latitude]),
+      destination: project([DESTINATION.longitude, DESTINATION.latitude]),
+    };
+  }, [routes]);
 
   const selected = modes.find(item => item.id === mode);
+  const bestRoute = loading ? undefined : routes[0];
   const missingApiKey = error.toLowerCase().includes('geoapify is not configured');
-  const distance = route?.distance_m ? `${(route.distance_m / 1000).toFixed(0)} km` : 'Route pending';
-  const duration = route?.duration_s ? `${Math.floor(route.duration_s / 3600)}h ${Math.round((route.duration_s % 3600) / 60)}m` : 'Checking live route';
+  const distance = bestRoute?.distance_m ? `${(bestRoute.distance_m / 1000).toFixed(0)} km` : 'Route pending';
+  const duration = bestRoute?.duration_s ? `${Math.floor(bestRoute.duration_s / 3600)}h ${Math.round((bestRoute.duration_s % 3600) / 60)}m` : 'Checking live route';
+  const zoomBy = (factor: number) => setViewport(current => {
+    const scale = Math.min(3, Math.max(1, current.scale * factor));
+    const ratio = scale / current.scale;
+    return { scale, x: WIDTH / 2 - (WIDTH / 2 - current.x) * ratio, y: HEIGHT / 2 - (HEIGHT / 2 - current.y) * ratio };
+  });
+  const resetView = () => setViewport({ x: 0, y: 0, scale: 1 });
   return <section className={`landing-map ${hero ? 'landing-map-hero' : ''}`} id="route-map">
     <div className="map-copy">
       <div className="eyebrow">LIVE ROUTE PLANNING</div>
@@ -107,20 +130,52 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
       <a className="button button-primary" href="/dashboard">Open shipment dashboard <ArrowRight size={15}/></a>
     </div>
     <div className="map-frame">
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Map showing the Basel to Copenhagen shipment route">
+      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Interactive map showing the Bengaluru to Mysuru shipment route in India. Drag to pan and use the scroll wheel to zoom." tabIndex={0}
+        className={dragging ? 'is-dragging' : ''}
+        onPointerDown={event => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); setDragging(true); event.currentTarget.dataset.dragX = String(event.clientX); event.currentTarget.dataset.dragY = String(event.clientY); }}
+        onPointerMove={event => { if (!dragging) return; const rect = event.currentTarget.getBoundingClientRect(); const prevX = Number(event.currentTarget.dataset.dragX); const prevY = Number(event.currentTarget.dataset.dragY); setViewport(current => ({ ...current, x: current.x + (event.clientX - prevX) * WIDTH / rect.width, y: current.y + (event.clientY - prevY) * HEIGHT / rect.height })); event.currentTarget.dataset.dragX = String(event.clientX); event.currentTarget.dataset.dragY = String(event.clientY); }}
+        onPointerUp={event => { setDragging(false); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
+        onPointerCancel={() => setDragging(false)}
+        onWheel={event => { event.preventDefault(); zoomBy(event.deltaY < 0 ? 1.15 : 1 / 1.15); }}>
         <defs><filter id="route-glow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-        <rect width={WIDTH} height={HEIGHT} fill="#102731"/>
-        {!tilesUnavailable && map.tiles.map(tile => <image key={`${tile.x}-${tile.y}`} href={mapTileUrl(ZOOM, tile.x, tile.y)} x={tile.left} y={tile.top} width={TILE} height={TILE} onError={() => setTilesUnavailable(true)}/>) }
-        <rect width={WIDTH} height={HEIGHT} fill="#06131d" opacity=".38"/>
-        <polyline points={map.line.map(point => point.join(',')).join(' ')} fill="none" stroke="#55d9e8" strokeWidth="10" opacity=".18" filter="url(#route-glow)"/>
-        <polyline points={map.line.map(point => point.join(',')).join(' ')} fill="none" stroke="#8fe8f0" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-        {[map.origin, map.destination].map((point, index) => <g key={index} transform={`translate(${point[0]} ${point[1]})`}><circle r="18" fill="#0a1c26" stroke={index ? '#f0a36b' : '#5bdbb3'} strokeWidth="4"/><circle r="5" fill={index ? '#f0a36b' : '#5bdbb3'}/></g>)}
+        <g transform={`translate(${viewport.x} ${viewport.y}) translate(${WIDTH / 2} ${HEIGHT / 2}) scale(${viewport.scale}) translate(${-WIDTH / 2} ${-HEIGHT / 2})`}>
+          <rect width={WIDTH} height={HEIGHT} fill="#102731"/>
+          {!tilesUnavailable && map.tiles.map(tile => <image key={`${tile.x}-${tile.y}`} href={mapTileUrl(ZOOM, tile.x, tile.y)} x={tile.left} y={tile.top} width={TILE} height={TILE} onError={() => setTilesUnavailable(true)}/>) }
+          <rect width={WIDTH} height={HEIGHT} fill="#06131d" opacity=".12" pointerEvents="none"/>
+          <g className={`route-network ${loading ? 'is-exploring' : 'is-settled'}`} pointerEvents="none">
+            {map.paths.map((points, index) => {
+              const line = points.map(point => point.join(',')).join(' ');
+              const motionPath = `M ${points.map(point => point.join(',')).join(' L ')}`;
+              return <g key={`${mode}-${index}`} style={{ '--route-delay': `${index * 320}ms` } as CSSProperties}>
+                <polyline className="route-candidate-glow" points={line} pathLength="1" fill="none" strokeWidth="9" filter="url(#route-glow)"/>
+                <polyline className="route-candidate-path" points={line} pathLength="1" fill="none" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+                {loading && <circle className="route-search-head" r="3.5" fill="#e1f7ff" stroke="#319cff" strokeWidth="2" filter="url(#route-glow)" opacity="0">
+                  <set attributeName="opacity" to="1" begin={`${index * .32}s`}/>
+                  <animateMotion path={motionPath} dur="3.6s" begin={`${index * .32}s`} fill="freeze" calcMode="paced"/>
+                </circle>}
+              </g>;
+            })}
+          </g>
+          {!loading && map.paths[0] && <g key={`winner-${mode}`} pointerEvents="none">
+            <polyline className="route-best-glow" points={map.paths[0].map(point => point.join(',')).join(' ')} pathLength="1" fill="none" strokeWidth="10" filter="url(#route-glow)"/>
+            <polyline className="route-best-path" points={map.paths[0].map(point => point.join(',')).join(' ')} pathLength="1" fill="none" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+          </g>}
+          {[map.origin, map.destination].map((point, index) => <g key={index} transform={`translate(${point[0]} ${point[1]})`} pointerEvents="none">
+            <circle className={loading && index === 0 ? 'route-origin-searching' : undefined} r="18" fill="#0a1c26" stroke={index ? '#f0a36b' : '#5bdbb3'} strokeWidth="4"/><circle r="5" fill={index ? '#f0a36b' : '#5bdbb3'}/>
+            <rect x="23" y="-23" width={index ? 113 : 138} height="46" rx="5" fill="#081923" stroke="#31505b"/>
+            <text x="34" y="-3" fill="#d9e8eb" fontSize="11" fontFamily="DM Mono, monospace">{index ? 'MYSURU, IN' : 'BENGALURU, IN'}</text>
+            <text x="34" y="12" fill="#78939d" fontSize="9" fontFamily="DM Mono, monospace" letterSpacing="1">{index ? 'DESTINATION' : 'ORIGIN'}</text>
+          </g>)}
+        </g>
       </svg>
-      <div className="map-topline"><span className={error || tilesUnavailable ? 'map-status-error' : ''}><i/>{error || tilesUnavailable ? 'MAP SERVICE UNAVAILABLE' : loading ? 'CONNECTING TO MAP' : route ? 'LIVE MAP CONNECTED' : 'DIRECT ROUTE PREVIEW'}</span><b>{selected?.label ?? 'Light truck'}</b></div>
-      <div className="map-location origin"><MapPin size={14}/><span>BASEL, CH<small>ORIGIN</small></span></div>
-      <div className="map-location destination"><MapPin size={14}/><span>COPENHAGEN, DK<small>DESTINATION</small></span></div>
-      {loading && <div className="map-loading"><RefreshCw size={16}/>Finding the best route…</div>}
-      {(error || tilesUnavailable) && <div className="map-error"><Route size={15}/>{missingApiKey ? 'Add GEOAPIFY_API_KEY to the backend .env file' : tilesUnavailable && !error ? 'Map tiles unavailable · route overlay remains visible' : 'Routing unavailable · showing direct route'}</div>}
+      <div className="map-topline"><span className={error || tilesUnavailable ? 'map-status-error' : ''}><i/>{error || tilesUnavailable ? 'MAP SERVICE UNAVAILABLE' : loading ? (routes.length ? 'EXPLORING ROUTE OPTIONS' : 'CONNECTING TO ROUTE SERVICE') : bestRoute ? `${routes.length} ROUTES · SHORTEST SELECTED` : 'ROUTE UNAVAILABLE'}</span><b>{selected?.label ?? 'Light truck'}</b></div>
+      <div className="map-controls" aria-label="Map controls">
+        <button type="button" onClick={() => zoomBy(1.25)} aria-label="Zoom in"><Plus size={16}/></button>
+        <button type="button" onClick={() => zoomBy(0.8)} aria-label="Zoom out" disabled={viewport.scale <= 1}><Minus size={16}/></button>
+        <button type="button" onClick={resetView} aria-label="Reset map view" disabled={viewport.scale === 1 && viewport.x === 0 && viewport.y === 0}><LocateFixed size={16}/></button>
+      </div>
+      {loading && <div className="map-loading"><RefreshCw size={16}/>{routes.length ? 'Exploring roads · comparing distances…' : 'Loading road routes…'}</div>}
+      {(error || tilesUnavailable) && <div className="map-error"><Route size={15}/>{missingApiKey ? 'Add GEOAPIFY_API_KEY to the backend .env file' : tilesUnavailable && !error ? 'Map tiles unavailable · route overlay remains visible' : 'Routing unavailable · please try another travel mode'}</div>}
     </div>
   </section>;
 }
