@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import { ArrowRight, LocateFixed, Minus, Navigation, Plus, RefreshCw, Route, Truck } from './uiMarks';
-import { getRoute, mapTileUrl, type MapRoute, type TravelMode } from './api';
+import { autocompleteAddress, getRoute, mapTileUrl, type MapRoute, type TravelMode } from './api';
 
-const ORIGIN = { latitude: 12.9716, longitude: 77.5946 };
-const DESTINATION = { latitude: 12.2958, longitude: 76.6394 };
+type Coordinate = { latitude: number; longitude: number };
+const DEFAULT_ORIGIN: Coordinate = { latitude: 12.9716, longitude: 77.5946 };
+const DEFAULT_DESTINATION: Coordinate = { latitude: 12.2958, longitude: 76.6394 };
 const ZOOM = 9;
 const WIDTH = 1000;
 const HEIGHT = 580;
@@ -41,12 +42,12 @@ function modeIcon(category?: string) {
   return <Navigation size={15}/>;
 }
 
-function basicRoute(mode: TravelMode): MapRoute {
+function basicRoute(mode: TravelMode, origin: Coordinate, destination: Coordinate): MapRoute {
   const earthKm = 6371;
-  const lat1 = ORIGIN.latitude * Math.PI / 180;
-  const lat2 = DESTINATION.latitude * Math.PI / 180;
-  const deltaLat = (DESTINATION.latitude - ORIGIN.latitude) * Math.PI / 180;
-  const deltaLon = (DESTINATION.longitude - ORIGIN.longitude) * Math.PI / 180;
+  const lat1 = origin.latitude * Math.PI / 180;
+  const lat2 = destination.latitude * Math.PI / 180;
+  const deltaLat = (destination.latitude - origin.latitude) * Math.PI / 180;
+  const deltaLon = (destination.longitude - origin.longitude) * Math.PI / 180;
   const a = Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
   const roadDistanceKm = earthKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.18;
   const averageKph = mode === 'truck' ? 46 : 58;
@@ -57,11 +58,10 @@ function basicRoute(mode: TravelMode): MapRoute {
     geometry: {
       type: 'LineString',
       coordinates: [
-        [ORIGIN.longitude, ORIGIN.latitude],
-        [77.42, 12.82],
-        [77.18, 12.63],
-        [76.92, 12.47],
-        [DESTINATION.longitude, DESTINATION.latitude],
+        [origin.longitude, origin.latitude],
+        [(origin.longitude * 2 + destination.longitude) / 3, (origin.latitude * 2 + destination.latitude) / 3 + .08],
+        [(origin.longitude + destination.longitude * 2) / 3, (origin.latitude + destination.latitude * 2) / 3 - .05],
+        [destination.longitude, destination.latitude],
       ],
     },
     instructions: [],
@@ -72,7 +72,12 @@ function basicRoute(mode: TravelMode): MapRoute {
 export default function RouteMap({ hero = false }: { hero?: boolean }) {
   const modes = MODES;
   const [mode, setMode] = useState<TravelMode>('truck');
-  const [routes, setRoutes] = useState<MapRoute[]>(() => [basicRoute('truck')]);
+  const [origin, setOrigin] = useState<Coordinate>(DEFAULT_ORIGIN);
+  const [destination, setDestination] = useState<Coordinate>(DEFAULT_DESTINATION);
+  const [originText, setOriginText] = useState('Bengaluru');
+  const [destinationText, setDestinationText] = useState('Mysuru');
+  const [locationError, setLocationError] = useState('');
+  const [routes, setRoutes] = useState<MapRoute[]>(() => [basicRoute('truck', DEFAULT_ORIGIN, DEFAULT_DESTINATION)]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tilesUnavailable, setTilesUnavailable] = useState(false);
@@ -83,8 +88,8 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
     let active = true;
     setLoading(true);
     setError('');
-    setRoutes([basicRoute(mode)]);
-    getRoute([ORIGIN, DESTINATION], mode, 3).then(result => {
+    setRoutes([basicRoute(mode, origin, destination)]);
+    getRoute([origin, destination], mode, 3).then(result => {
       if (!active) return;
       const ranked = result.routes
         .filter(item => item.geometry && typeof item.distance_m === 'number')
@@ -98,12 +103,31 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
       }
     });
     return () => { active = false; };
-  }, [mode]);
+  }, [mode, origin, destination]);
+
+  async function applyLocations(event: FormEvent) {
+    event.preventDefault();
+    setLocationError('');
+    const resolve = async (text: string, fallback: Coordinate) => {
+      const value = text.trim().toLowerCase();
+      const known: Record<string, Coordinate> = {
+        bengaluru: DEFAULT_ORIGIN, bangalore: DEFAULT_ORIGIN, mysuru: DEFAULT_DESTINATION, mysore: DEFAULT_DESTINATION,
+      };
+      if (known[value]) return known[value];
+      const response = await autocompleteAddress(text.trim());
+      const item = response.results?.[0] as { lat?: number; lon?: number } | undefined;
+      return item?.lat && item?.lon ? { latitude: Number(item.lat), longitude: Number(item.lon) } : fallback;
+    };
+    try {
+      const [nextOrigin, nextDestination] = await Promise.all([resolve(originText, origin), resolve(destinationText, destination)]);
+      setOrigin(nextOrigin); setDestination(nextDestination);
+    } catch { setLocationError('Could not find one of those places. Try a city or address.'); }
+  }
 
   const map = useMemo(() => {
-    const origin = worldPoint(ORIGIN.longitude, ORIGIN.latitude);
-    const destination = worldPoint(DESTINATION.longitude, DESTINATION.latitude);
-    const center: Point = [(origin[0] + destination[0]) / 2, (origin[1] + destination[1]) / 2];
+    const originPoint = worldPoint(origin.longitude, origin.latitude);
+    const destinationPoint = worldPoint(destination.longitude, destination.latitude);
+    const center: Point = [(originPoint[0] + destinationPoint[0]) / 2, (originPoint[1] + destinationPoint[1]) / 2];
     const project = ([longitude, latitude]: Point): Point => {
       const point = worldPoint(longitude, latitude);
       return [point[0] - center[0] + WIDTH / 2, point[1] - center[1] + HEIGHT / 2];
@@ -120,10 +144,10 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
     return {
       tiles,
       paths,
-      origin: project([ORIGIN.longitude, ORIGIN.latitude]),
-      destination: project([DESTINATION.longitude, DESTINATION.latitude]),
+      origin: project([origin.longitude, origin.latitude]),
+      destination: project([destination.longitude, destination.latitude]),
     };
-  }, [routes]);
+  }, [routes, origin, destination]);
 
   const selected = modes.find(item => item.id === mode);
   const bestRoute = routes[0];
@@ -140,6 +164,7 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
 
       <h2>Plan the clearest route.<br/><span>Keep cool shipments moving.</span></h2>
       <p>Choose how the shipment travels and see its route, distance and travel time. The map stays connected to the backend so provider details remain private.</p>
+      <form className="map-location-form" onSubmit={applyLocations}><div className="map-location-fields"><label>FROM<input value={originText} onChange={event => setOriginText(event.target.value)} aria-label="Starting location"/></label><span className="map-location-arrow">→</span><label>TO<input value={destinationText} onChange={event => setDestinationText(event.target.value)} aria-label="Destination"/></label></div><button className="button button-outline" type="submit">Update route</button>{locationError && <small role="alert">{locationError}</small>}</form>
       <label className="map-mode-select"><span>HOW IT TRAVELS</span><div>{modeIcon(selected?.category)}<select value={mode} onChange={event => setMode(event.target.value as TravelMode)}>{modes.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div></label>
       <div className="map-route-summary"><div><span>DISTANCE</span><b>{distance}</b></div><div><span>TRAVEL TIME</span><b>{duration}</b></div></div>
       <a className="button button-primary" href="/dashboard">Open shipment dashboard <ArrowRight size={15}/></a>
@@ -177,7 +202,7 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
           {[map.origin, map.destination].map((point, index) => <g key={index} transform={`translate(${point[0]} ${point[1]})`} pointerEvents="none">
             <circle className={loading && index === 0 ? 'route-origin-searching' : undefined} r="18" fill="#f1eee5" stroke={index ? '#a65436' : '#68704d'} strokeWidth="4"/><circle r="5" fill={index ? '#a65436' : '#68704d'}/>
             <rect x="23" y="-23" width={index ? 113 : 138} height="46" fill="#f5f1e9" stroke="#817c70"/>
-            <text x="34" y="-3" fill="#282820" fontSize="11" fontFamily="Courier New, monospace">{index ? 'MYSURU, IN' : 'BENGALURU, IN'}</text>
+            <text x="34" y="-3" fill="#282820" fontSize="11" fontFamily="Courier New, monospace">{index ? destinationText.toUpperCase() : originText.toUpperCase()}</text>
             <text x="34" y="12" fill="#68685f" fontSize="9" fontFamily="Courier New, monospace" letterSpacing="1">{index ? 'DESTINATION' : 'ORIGIN'}</text>
           </g>)}
         </g>
