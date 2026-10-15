@@ -1,7 +1,10 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.core.errors import unhandled_error_handler
+from app.core.errors import http_error_handler, unhandled_error_handler, validation_error_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi import HTTPException
 from app.api.auth import router as auth_router
 from app.api.shipping import router as shipping_router
 from app.api.telemetry import router as telemetry_router
@@ -12,7 +15,10 @@ from app.api.scenarios import router as scenarios_router
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name, version="0.1.0")
+app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.add_exception_handler(Exception, unhandled_error_handler)
+app.add_exception_handler(HTTPException, http_error_handler)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.include_router(auth_router, prefix=settings.api_prefix)
 app.include_router(shipping_router, prefix=settings.api_prefix)
 app.include_router(telemetry_router, prefix=settings.api_prefix)

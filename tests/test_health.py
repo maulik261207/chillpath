@@ -14,3 +14,9 @@ def test_ready_health_is_explicit_about_database() -> None:
     assert response.status_code == 200
     assert response.json()["database"] == "not_checked"
 
+
+def test_validation_errors_are_structured() -> None:
+    response = TestClient(app).post("/v1/simulations", json={"scenario_type": "unknown"})
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
