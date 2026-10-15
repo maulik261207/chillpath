@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: chillpath
+      POSTGRES_USER: chillpath
+      POSTGRES_PASSWORD: chillpath
+    ports:
+      - "5432:5432"
+    volumes:
+      - chillpath_pgdata:/var/lib/postgresql/data
+
+volumes:
+  chillpath_pgdata:
+
