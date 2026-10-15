@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Check, Cpu, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Check, Cpu, ShieldCheck } from './uiMarks';
 import { api, organizationId } from './api';
 
 type Shipment = { id: string; external_ref: string; origin_label: string; destination_label: string };

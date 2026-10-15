@@ -1,6 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, MapPin, Radio, ShieldCheck, Thermometer } from 'lucide-react';
+import { ArrowLeft, MapPin, Radio, ShieldCheck, Thermometer } from './uiMarks';
 import { api, connectedMode, organizationId } from './api';
 import { useApp } from './store/demoStore';
 

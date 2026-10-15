@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { ArrowRight, Bus, LocateFixed, Minus, Navigation, Plus, RefreshCw, Route, Truck } from 'lucide-react';
+import { ArrowRight, Bus, LocateFixed, Minus, Navigation, Plus, RefreshCw, Route, Truck } from './uiMarks';
 import { getRoute, getTransportModes, mapTileUrl, type MapRoute, type TravelMode } from './api';
 
 const ORIGIN = { latitude: 12.9716, longitude: 77.5946 };
@@ -137,19 +137,17 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
         onPointerUp={event => { setDragging(false); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
         onPointerCancel={() => setDragging(false)}
         onWheel={event => { event.preventDefault(); zoomBy(event.deltaY < 0 ? 1.15 : 1 / 1.15); }}>
-        <defs><filter id="route-glow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
         <g transform={`translate(${viewport.x} ${viewport.y}) translate(${WIDTH / 2} ${HEIGHT / 2}) scale(${viewport.scale}) translate(${-WIDTH / 2} ${-HEIGHT / 2})`}>
-          <rect width={WIDTH} height={HEIGHT} fill="#102731"/>
+          <rect width={WIDTH} height={HEIGHT} fill="#d5d0c4"/>
           {!tilesUnavailable && map.tiles.map(tile => <image key={`${tile.x}-${tile.y}`} href={mapTileUrl(ZOOM, tile.x, tile.y)} x={tile.left} y={tile.top} width={TILE} height={TILE} onError={() => setTilesUnavailable(true)}/>) }
-          <rect width={WIDTH} height={HEIGHT} fill="#06131d" opacity=".12" pointerEvents="none"/>
+          <rect width={WIDTH} height={HEIGHT} fill="#f1eee5" opacity=".08" pointerEvents="none"/>
           <g className={`route-network ${loading ? 'is-exploring' : 'is-settled'}`} pointerEvents="none">
             {map.paths.map((points, index) => {
               const line = points.map(point => point.join(',')).join(' ');
               const motionPath = `M ${points.map(point => point.join(',')).join(' L ')}`;
               return <g key={`${mode}-${index}`} style={{ '--route-delay': `${index * 320}ms` } as CSSProperties}>
-                <polyline className="route-candidate-glow" points={line} pathLength="1" fill="none" strokeWidth="9" filter="url(#route-glow)"/>
                 <polyline className="route-candidate-path" points={line} pathLength="1" fill="none" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
-                {loading && <circle className="route-search-head" r="3.5" fill="#e1f7ff" stroke="#319cff" strokeWidth="2" filter="url(#route-glow)" opacity="0">
+                {loading && <circle className="route-search-head" r="3.5" fill="#f1eee5" stroke="#a65436" strokeWidth="2" opacity="0">
                   <set attributeName="opacity" to="1" begin={`${index * .32}s`}/>
                   <animateMotion path={motionPath} dur="3.6s" begin={`${index * .32}s`} fill="freeze" calcMode="paced"/>
                 </circle>}
@@ -157,14 +155,13 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
             })}
           </g>
           {!loading && map.paths[0] && <g key={`winner-${mode}`} pointerEvents="none">
-            <polyline className="route-best-glow" points={map.paths[0].map(point => point.join(',')).join(' ')} pathLength="1" fill="none" strokeWidth="10" filter="url(#route-glow)"/>
             <polyline className="route-best-path" points={map.paths[0].map(point => point.join(',')).join(' ')} pathLength="1" fill="none" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
           </g>}
           {[map.origin, map.destination].map((point, index) => <g key={index} transform={`translate(${point[0]} ${point[1]})`} pointerEvents="none">
-            <circle className={loading && index === 0 ? 'route-origin-searching' : undefined} r="18" fill="#0a1c26" stroke={index ? '#f0a36b' : '#5bdbb3'} strokeWidth="4"/><circle r="5" fill={index ? '#f0a36b' : '#5bdbb3'}/>
-            <rect x="23" y="-23" width={index ? 113 : 138} height="46" rx="5" fill="#081923" stroke="#31505b"/>
-            <text x="34" y="-3" fill="#d9e8eb" fontSize="11" fontFamily="DM Mono, monospace">{index ? 'MYSURU, IN' : 'BENGALURU, IN'}</text>
-            <text x="34" y="12" fill="#78939d" fontSize="9" fontFamily="DM Mono, monospace" letterSpacing="1">{index ? 'DESTINATION' : 'ORIGIN'}</text>
+            <circle className={loading && index === 0 ? 'route-origin-searching' : undefined} r="18" fill="#f1eee5" stroke={index ? '#a65436' : '#68704d'} strokeWidth="4"/><circle r="5" fill={index ? '#a65436' : '#68704d'}/>
+            <rect x="23" y="-23" width={index ? 113 : 138} height="46" fill="#f5f1e9" stroke="#817c70"/>
+            <text x="34" y="-3" fill="#282820" fontSize="11" fontFamily="Courier New, monospace">{index ? 'MYSURU, IN' : 'BENGALURU, IN'}</text>
+            <text x="34" y="12" fill="#68685f" fontSize="9" fontFamily="Courier New, monospace" letterSpacing="1">{index ? 'DESTINATION' : 'ORIGIN'}</text>
           </g>)}
         </g>
       </svg>

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Search } from 'lucide-react';
+import { ArrowRight, Search } from './uiMarks';
 import { api, connectedMode, organizationId } from './api';
 
 type ApiShipment = {
