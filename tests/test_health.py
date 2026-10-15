@@ -12,7 +12,7 @@ def test_live_health() -> None:
 def test_ready_health_is_explicit_about_database() -> None:
     response = TestClient(app).get("/health/ready")
     assert response.status_code == 200
-    assert response.json()["database"] == "not_checked"
+    assert response.json()["database"] == "ok"
 
 
 def test_validation_errors_are_structured() -> None:

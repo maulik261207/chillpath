@@ -1,59 +1,63 @@
-# ChillPath backend
+# ChillPath
 
-The repository now includes a Vite/React command center in `frontend/`. It runs in an
-explicitly labeled deterministic demo mode by default, so the product walkthrough does not
-depend on a running API or a paid service. The FastAPI service remains available for connected
-mode integration.
+ChillPath is a cold-chain operations prototype with a React command center, deterministic shipment simulator, and FastAPI service. The default interface uses clearly labeled synthetic data and does not make product-safety, compliance, or release decisions.
 
-Milestone 0 provides a small FastAPI service scaffold. Product, tenant, telemetry, exposure,
-recovery, and billing domains are intentionally deferred to later milestones.
+## Frontend demo
 
-The current local implementation now includes identity and tenant foundations, shipment and
-sensor records, duplicate-safe telemetry ingestion, an offline gateway spool, exposure and
-evidence classification, recovery recommendations, route timelines, mock usage billing, and
-seedable demo simulations. These are hackathon foundations and do not make product-safety or
-product-release decisions.
+Requirements: Node.js 20 or newer.
 
-## Local setup
+```sh
+cd frontend
+npm install
+npm run dev
+```
 
-### Frontend demo
+Open `http://localhost:5173`. The demo includes the landing page, operations dashboard, searchable shipment list and detail, recovery suggestions, traceability export, and a deterministic scenario lab with offline buffering and a guided walkthrough.
 
-1. Install Node.js 20 or newer.
-2. Run `cd frontend` and `npm install`.
-3. Start the interface with `npm run dev` and open `http://localhost:5173`.
-4. Run `npm run build` for the TypeScript check and production bundle.
+Build and run the frontend tests:
 
-The demo includes the landing page, fleet command center, shipment list, recovery queue,
-traceability timeline, and deterministic disruption simulator. It labels its synthetic data as
-demo data and makes no product safety or release decisions.
+```sh
+npm run build
+npm test
+```
 
-### Backend
+## Backend API
 
-1. Create a virtual environment and install dependencies: `python -m venv .venv` then
-   `.venv\\Scripts\\python -m pip install -e .[test]`.
-2. Copy `.env.example` to `.env`.
-3. Start PostgreSQL with `docker compose up -d db`.
-4. Run the API with `.venv\\Scripts\\python -m uvicorn app.main:app --reload`.
-5. Open `http://localhost:8000/docs` for the generated OpenAPI document.
+Requirements: Python 3.11 or newer.
 
-Run tests with `.venv\\Scripts\\python -m pytest`.
+```sh
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+python -m pip install -e '.[test]'
+uvicorn app.main:app --reload
+```
 
-To run the API and PostgreSQL together in containers, use `docker compose up --build`. The API
-is then available at `http://localhost:8000` and its OpenAPI UI at `http://localhost:8000/docs`.
+The API defaults to a local SQLite database (`chillpath.db`) and creates the schema at startup. Open `http://localhost:8000/docs` for the API reference. PostgreSQL settings are available in `.env.example`; Docker Compose can run the API and database together with `docker compose up --build`.
 
-## Current endpoints
+Run the backend suite:
 
-- `GET /health/live` confirms the process is alive.
-- `GET /health/ready` is a placeholder readiness endpoint; database checks arrive with the
-  first schema milestone.
-- `POST /v1/auth/register` creates a user, organization, and owner membership.
-- `POST /v1/auth/login` verifies credentials and returns a temporary bearer token placeholder.
-- `POST /v1/telemetry/batch` ingests bounded telemetry batches with duplicate/conflict results.
-- `POST /v1/simulations` runs a deterministic demo scenario.
-- `GET /v1/shipments/{id}/timeline` returns route-event history.
-- `POST /v1/billing/usage` records mock, deduplicated usage.
+```sh
+pytest
+```
 
-The backend stores UTC timestamps and will use tenant-scoped, append-only evidence models as
-the domain milestones are implemented. It does not make product-safety or product-release
-decisions.
+## Connected shipment mode
 
+1. Start the API and register a development organization at `POST /v1/auth/register` using `/docs`.
+2. Copy the returned `organization_id`.
+3. Copy `frontend/.env.example` to `frontend/.env.local` and set `VITE_API_BASE_URL=http://localhost:8000/v1` and `VITE_ORGANIZATION_ID` to that UUID.
+4. Restart the Vite server. The Shipments page can list and create shipments and policies. Shipment detail and recovery are API-backed.
+
+The API currently accepts organization IDs directly and the authentication token is a development placeholder. This is not production tenant authorization; do not expose it to untrusted users.
+
+## Current API surface
+
+- `GET /health/live` and database-backed `GET /health/ready`.
+- `POST /v1/auth/register` and `POST /v1/auth/login` (development identity scaffold).
+- `GET` and `POST /v1/product-policies`.
+- `GET` and `POST /v1/shipments`; `GET /v1/shipments/{id}`.
+- `POST /v1/telemetry/batch` for duplicate-safe bounded batch ingestion.
+- `GET /v1/shipments/{id}/telemetry` and `/timeline`.
+- `GET /v1/shipments/{id}/recovery` for evidence classification and ranked, pending recommendations.
+- `POST /v1/simulations` and mock usage billing endpoints.
+
+The service stores UTC event times and scopes records by organization ID. Synthetic demo behavior and API prototype boundaries are identified in the interface and documentation.

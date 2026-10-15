@@ -8,6 +8,8 @@ class ScenarioType(StrEnum):
     traffic_delay = "traffic_delay"
     destination_closure = "destination_closure"
     evidence_gap = "evidence_gap"
+    sensor_fault = "sensor_fault"
+    network_disconnection = "network_disconnection"
 
 
 @dataclass(frozen=True)
@@ -18,6 +20,8 @@ class ScenarioResult:
     route_blocked: bool
     added_delay_seconds: int
     warning: str | None = None
+    alternate_available: bool = False
+    offline: bool = False
 
 
 def run_scenario(scenario_type: ScenarioType, seed: int = 1, duration: int = 5) -> ScenarioResult:
@@ -31,5 +35,12 @@ def run_scenario(scenario_type: ScenarioType, seed: int = 1, duration: int = 5) 
         return ScenarioResult(scenario_type, seed, [5.0] * duration, True, 0, "destination marked closed")
     if scenario_type == ScenarioType.evidence_gap:
         return ScenarioResult(scenario_type, seed, [5.0] * max(1, duration // 2), False, 0, "coverage intentionally incomplete")
+    if scenario_type == ScenarioType.sensor_fault:
+        readings = [5.0] * duration
+        if duration > 1:
+            readings[1] = 12.4
+        return ScenarioResult(scenario_type, seed, readings, False, 0, "one synthetic sensor spike conflicts with adjacent readings")
+    if scenario_type == ScenarioType.network_disconnection:
+        return ScenarioResult(scenario_type, seed, [5.0] * duration, False, 0, "synthetic readings buffered while offline", offline=True)
     return ScenarioResult(scenario_type, seed, [5.0] * duration, False, 0)
 

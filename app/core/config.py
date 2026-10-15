@@ -6,7 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "ChillPath API"
     environment: str = "local"
-    database_url: str = "postgresql+asyncpg://chillpath:chillpath@localhost:5432/chillpath"
+    database_url: str = "sqlite+aiosqlite:///./chillpath.db"
+    auto_create_schema: bool = True
     api_prefix: str = "/v1"
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
