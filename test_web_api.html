@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChillPath Live Temperature API Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(22, 30, 49, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --success: #34d399;
+      --danger: #f87171;
+      --warning: #fbbf24;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --code-bg: #0f172a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 0%, #1e293b 0%, var(--bg) 70%);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+    .status-dot.online {
+      background: var(--success);
+      box-shadow: 0 0 10px var(--success);
+      animation: pulse 2s infinite;
+    }
+    .status-dot.offline {
+      background: var(--danger);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+    }
+
+    h1 {
+      font-size: 2.25rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(to right, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .config-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      backdrop-filter: blur(16px);
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      align-items: end;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .field input {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: #fff;
+      padding: 0.55rem 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .field input:focus {
+      border-color: var(--accent);
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #04121e;
+      border: none;
+      border-radius: 8px;
+      padding: 0.6rem 1.25rem;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:hover {
+      opacity: 0.9;
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .grid-dashboard {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .hero-metric {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem 1rem;
+    }
+
+    .temp-display {
+      font-size: 4.5rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-bottom: 0.25rem;
+      color: #ffffff;
+      text-shadow: 0 0 25px var(--accent-glow);
+    }
+
+    .temp-fahrenheit {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .telemetry-meta {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      width: 100%;
+      margin-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 1rem;
+    }
+
+    .meta-box {
+      background: rgba(15, 23, 42, 0.5);
+      padding: 0.75rem;
+      border-radius: 8px;
+      text-align: left;
+    }
+    .meta-box span.title {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      display: block;
+    }
+    .meta-box span.val {
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: #fff;
+    }
+
+    .snippets-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 1.25rem;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+
+    .keyword { color: #f472b6; }
+    .string { color: #a7f3d0; }
+    .fun { color: #60a5fa; }
+    .comment { color: #64748b; font-style: italic; }
+
+    @media (max-width: 768px) {
+      .config-bar { grid-template-columns: 1fr; }
+      .grid-dashboard { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">
+        <span class="status-dot offline" id="statusDot"></span>
+        <span id="statusText">Connecting to API...</span>
+      </div>
+      <h1>Live Temperature Monitor</h1>
+      <p class="subtitle">Protected Cloud Web API — Streamed directly via PC Internet Bridge</p>
+    </header>
+
+    <div class="config-bar">
+      <div class="field">
+        <label for="apiUrl">API URL</label>
+        <input type="text" id="apiUrl" value="http://localhost:8000/v1/telemetry/live">
+      </div>
+      <div class="field">
+        <label for="apiKey">API Key (X-API-Key)</label>
+        <input type="text" id="apiKey" value="chillpath_live_secret_key">
+      </div>
+      <button class="btn" id="refreshBtn" onclick="fetchLiveTelemetry()">Poll Now</button>
+    </div>
+
+    <div class="grid-dashboard">
+      <div class="card hero-metric">
+        <div class="temp-display" id="tempC">--.-°C</div>
+        <div class="temp-fahrenheit" id="tempF">--.-°F</div>
+
+        <div class="telemetry-meta">
+          <div class="meta-box">
+            <span class="title">LM393 DO State</span>
+            <span class="val" id="doState">--</span>
+          </div>
+          <div class="meta-box">
+            <span class="title">Buzzer Alert</span>
+            <span class="val" id="buzzerState">--</span>
+          </div>
+          <div class="meta-box">
+            <span class="title">Analog Voltage</span>
+            <span class="val" id="analogVal">--</span>
+          </div>
+          <div class="meta-box">
+            <span class="title">Last Updated</span>
+            <span class="val" id="lastUpdated">--</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #fff;">Sensor Health & Gateway</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem;">
+            Data is read continuously from the Red NTC thermistor module over USB Serial and broadcast securely to this endpoint.
+          </p>
+          <div style="background: rgba(15, 23, 42, 0.6); padding: 0.85rem; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #94a3b8; line-height: 1.6;">
+            <div><strong>Device:</strong> <span id="deviceId">esp32-s3-temp-01</span></div>
+            <div><strong>Channel:</strong> USB Serial (COM11) -> Cloud</div>
+            <div><strong>Security:</strong> API Key Authenticated</div>
+            <div><strong>Packet Latency:</strong> <span id="packetLatency">--</span></div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; font-size: 0.8rem; color: var(--accent);">
+          💡 Tip: You can query this data on any external website using <code>fetch()</code> or by appending <code>?api_key=...</code> to the URL.
+        </div>
+      </div>
+    </div>
+
+    <div class="snippets-section">
+      <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">Embed on Your Website</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+        Copy and paste any of these snippets directly into your frontend or backend:
+      </p>
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('js')">JavaScript (fetch)</button>
+        <button class="tab-btn" onclick="switchTab('curl')">cURL</button>
+        <button class="tab-btn" onclick="switchTab('python')">Python</button>
+      </div>
+
+      <div id="tab-js">
+        <pre><code><span class="comment">// 1. Fetch live telemetry using X-API-Key header</span>
+<span class="keyword">async function</span> <span class="fun">getTemperature</span>() {
+  <span class="keyword">const</span> res = <span class="keyword">await</span> <span class="fun">fetch</span>(<span class="string">'http://localhost:8000/v1/telemetry/live'</span>, {
+    headers: { <span class="string">'X-API-Key'</span>: <span class="string">'chillpath_live_secret_key'</span> }
+  });
+  <span class="keyword">const</span> json = <span class="keyword">await</span> res.<span class="fun">json</span>();
+  console.<span class="fun">log</span>(<span class="string">'Temperature:'</span>, json.data.temperature_c, <span class="string">'°C'</span>);
+  <span class="keyword">return</span> json.data;
+}
+
+<span class="comment">// 2. Or simply use the URL query parameter:</span>
+<span class="comment">// http://localhost:8000/v1/telemetry/live?api_key=chillpath_live_secret_key</span></code></pre>
+      </div>
+
+      <div id="tab-curl" style="display: none;">
+        <pre><code><span class="comment"># Using X-API-Key Header:</span>
+curl -X GET "http://localhost:8000/v1/telemetry/live" \
+     -H "X-API-Key: chillpath_live_secret_key"
+
+<span class="comment"># Or via query parameter:</span>
+curl "http://localhost:8000/v1/telemetry/live?api_key=chillpath_live_secret_key"</code></pre>
+      </div>
+
+      <div id="tab-python" style="display: none;">
+        <pre><code><span class="keyword">import</span> requests
+
+url = <span class="string">"http://localhost:8000/v1/telemetry/live"</span>
+headers = {<span class="string">"X-API-Key"</span>: <span class="string">"chillpath_live_secret_key"</span>}
+
+data = requests.get(url, headers=headers).json()
+print(f<span class="string">"Current Temp: {data['data']['temperature_c']} °C"</span>)</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function fetchLiveTelemetry() {
+      const url = document.getElementById('apiUrl').value.trim();
+      const key = document.getElementById('apiKey').value.trim();
+      const dot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'X-API-Key': key,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (res.status === 401) {
+          dot.className = 'status-dot offline';
+          statusText.textContent = 'Unauthorized (Check API Key)';
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status);
+        }
+
+        const body = await res.json();
+        if (body.data) {
+          const d = body.data;
+          document.getElementById('tempC').textContent = `${d.temperature_c.toFixed(1)}°C`;
+          document.getElementById('tempF').textContent = `${(d.temperature_f || ((d.temperature_c * 9/5) + 32)).toFixed(1)}°F`;
+          document.getElementById('doState').textContent = d.do_tripped ? 'TRIPPED (LOW)' : 'NORMAL (HIGH)';
+          document.getElementById('doState').style.color = d.do_tripped ? '#f87171' : '#34d399';
+          document.getElementById('buzzerState').textContent = d.buzzer_active ? 'BEEPING' : 'OFF';
+          document.getElementById('buzzerState').style.color = d.buzzer_active ? '#f87171' : '#94a3b8';
+          document.getElementById('analogVal').textContent = d.voltage ? `${d.voltage.toFixed(3)} V` : (d.adc_mv ? `${d.adc_mv} mV` : '--');
+          document.getElementById('deviceId').textContent = d.device_id || 'esp32-s3-temp-01';
+
+          const now = new Date();
+          document.getElementById('lastUpdated').textContent = now.toLocaleTimeString();
+
+          if (body.online) {
+            dot.className = 'status-dot online';
+            statusText.textContent = 'ONLINE (Live Stream)';
+            document.getElementById('packetLatency').textContent = `${body.seconds_since_last_packet}s ago`;
+          } else {
+            dot.className = 'status-dot offline';
+            statusText.textContent = 'OFFLINE (Bridge idle)';
+            document.getElementById('packetLatency').textContent = `${body.seconds_since_last_packet}s ago`;
+          }
+        } else {
+          dot.className = 'status-dot offline';
+          statusText.textContent = 'Awaiting Data (Start Bridge)';
+        }
+      } catch (err) {
+        dot.className = 'status-dot offline';
+        statusText.textContent = 'API Connection Error';
+      }
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('[id^="tab-"]').forEach(d => d.style.display = 'none');
+      document.getElementById('tab-' + tab).style.display = 'block';
+      event.target.classList.add('active');
+    }
+
+    // Auto poll every 1.5s
+    setInterval(fetchLiveTelemetry, 1500);
+    fetchLiveTelemetry();
+  </script>
+</body>
+</html>

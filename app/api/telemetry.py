@@ -1,7 +1,8 @@
 import hashlib
 import json
+import os
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
@@ -10,10 +11,36 @@ from app.schemas.telemetry import TelemetryBatch, LiveTelemetryItem
 
 router = APIRouter(prefix="/telemetry", tags=["telemetry"])
 
-# In-memory storage for real-time live telemetry from phone gateway
+# Default secret API key (can be overridden via environment variable CHILLPATH_API_KEY)
+DEFAULT_API_KEY = os.getenv("CHILLPATH_API_KEY", "chillpath_live_secret_key")
+
+# In-memory storage for real-time live telemetry from PC bridge
 _latest_live_telemetry: dict | None = None
 _live_history: list[dict] = []
 MAX_HISTORY_SIZE = 200
+
+
+def verify_api_key(
+    x_api_key: str | None = Header(None, alias="X-API-Key"),
+    authorization: str | None = Header(None),
+    api_key: str | None = Query(None),
+) -> str:
+    """Validates the API key from X-API-Key header, query param (?api_key=), or Bearer token."""
+    provided_key = x_api_key or api_key
+    if not provided_key and authorization:
+        if authorization.lower().startswith("bearer "):
+            provided_key = authorization[7:].strip()
+        else:
+            provided_key = authorization.strip()
+
+    valid_key = os.getenv("CHILLPATH_API_KEY", DEFAULT_API_KEY)
+    if not provided_key or provided_key != valid_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: Invalid or missing API key. Please pass 'X-API-Key' header or '?api_key=' query parameter.",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+    return provided_key
 
 
 @router.post("/batch")
@@ -38,7 +65,10 @@ async def ingest_batch(batch: TelemetryBatch, db: AsyncSession = Depends(get_db)
 
 
 @router.post("/live")
-async def ingest_live_telemetry(item: LiveTelemetryItem) -> dict:
+async def ingest_live_telemetry(
+    item: LiveTelemetryItem,
+    _key: str = Depends(verify_api_key),
+) -> dict:
     global _latest_live_telemetry, _live_history
     data = item.model_dump()
     if not data.get("observed_at"):
@@ -59,12 +89,12 @@ async def ingest_live_telemetry(item: LiveTelemetryItem) -> dict:
 
 
 @router.get("/live")
-async def get_latest_live_telemetry() -> dict:
+async def get_latest_live_telemetry(_key: str = Depends(verify_api_key)) -> dict:
     global _latest_live_telemetry
     if _latest_live_telemetry is None:
         return {
             "online": False,
-            "message": "No live telemetry received yet. Connect your phone gateway to start streaming.",
+            "message": "No live telemetry received yet. Run pc_sensor_bridge.py on your PC to stream data.",
             "data": None,
         }
 
@@ -85,11 +115,15 @@ async def get_latest_live_telemetry() -> dict:
 
 
 @router.get("/live/history")
-async def get_live_telemetry_history(limit: int = 50) -> dict:
+async def get_live_telemetry_history(
+    limit: int = 50,
+    _key: str = Depends(verify_api_key),
+) -> dict:
     global _live_history
     count = min(limit, len(_live_history))
     return {
         "count": count,
         "points": _live_history[-count:],
     }
+
 

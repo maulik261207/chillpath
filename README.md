@@ -163,6 +163,66 @@ Paginated `GET /searches/{search_id}/events` remains available for diagnostics;
 the user interface does not load it. For automated backend tests, use a fresh
 SQLite database, for example
 `DATABASE_URL=sqlite+aiosqlite:////private/tmp/chillpath-test.db pytest`.
-The older local `chillpath.db` may predate the current telemetry schema; schema
-migrations are not yet part of this prototype.
 
+## ESP32-S3 Direct PC Internet Bridge & Authenticated Telemetry API
+
+Bluetooth has been completely replaced with a direct, ultra-stable USB Serial -> PC Internet Bridge that uploads live temperature data from the physical sensors to the Web Cloud API.
+
+### Hardware Pin Mapping
+- **Red NTC Temperature Sensor**:
+  - `AO` -> GPIO 4 (ADC1 Channel 3)
+  - `DO` -> GPIO 5 (LM393 Digital Comparator threshold)
+  - `+` (VCC) -> 3V3
+  - `GND` -> GND
+- **Active Buzzer (Black Module)**:
+  - `S` (Signal) -> GPIO 6
+  - `Middle` (VCC) -> 3V3
+  - `-` (GND) -> GND
+
+---
+
+### 1. Start the PC Internet Bridge
+Connect the ESP32-S3 to your PC via USB and run:
+```bash
+python pc_sensor_bridge.py
+```
+*The bridge automatically detects the USB serial port (`COM11`/`CH343`), reads live JSON readings every 1s, and uploads them to the web API.*
+
+---
+
+### 2. Accessing the Live Data from Your Website (API Key Protected)
+
+The API is protected with an API Key:
+- **Default API Key**: `chillpath_live_secret_key` (can be configured via `CHILLPATH_API_KEY` env var)
+- **Endpoint**: `http://localhost:8000/v1/telemetry/live`
+
+#### Option A: JavaScript `fetch()` (Using HTTP Header)
+```javascript
+async function getLiveTemperature() {
+  const response = await fetch('http://localhost:8000/v1/telemetry/live', {
+    headers: {
+      'X-API-Key': 'chillpath_live_secret_key'
+    }
+  });
+  const result = await response.json();
+  console.log('Temperature:', result.data.temperature_c, '°C');
+  console.log('Fahrenheit:', result.data.temperature_f, '°F');
+  console.log('DO Tripped:', result.data.do_tripped);
+  console.log('Buzzer Active:', result.data.buzzer_active);
+}
+```
+
+#### Option B: Direct URL Query Parameter
+```
+http://localhost:8000/v1/telemetry/live?api_key=chillpath_live_secret_key
+```
+
+#### Option C: cURL
+```bash
+curl -X GET "http://localhost:8000/v1/telemetry/live" -H "X-API-Key: chillpath_live_secret_key"
+```
+
+---
+
+### 3. Interactive Web Viewer
+Open `test_web_api.html` directly in your browser to view real-time live graphs, gauges, buzzer alerts, and copy-paste integration code.
