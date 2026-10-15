@@ -75,7 +75,8 @@ const float VCC_VOLTAGE       = 3.3;     // Supply voltage (3.3V)
 const float  DEFAULT_TEMP_MAX_THRESHOLD   = 35.0;          // Celsius
 const float  DEFAULT_TEMP_MIN_THRESHOLD   = 2.0;           // Celsius (cold-chain low limit)
 const bool   DEFAULT_BUZZER_ENABLED       = true;          // Sound buzzer on alarm
-const bool   DEFAULT_DO_ALERT_ENABLED     = true;          // Trigger on DO pin change
+const bool   DEFAULT_DO_ALERT_ENABLED     = false;         // Default to FALSE to prevent uncalibrated potentiometer false alarms
+const bool   DEFAULT_BUZZER_ACTIVE_HIGH   = true;          // Active-HIGH buzzer module polarity
 const char*  DEFAULT_PHONE_PRIMARY        = "+919557066830"; // E.164 format (+[CountryCode][Number])
 const char*  DEFAULT_PHONE_SECONDARY      = "";            // Optional 2nd contact
 const bool   DEFAULT_ENABLE_VOICE_CALL    = true;          // Place phone call on alert
@@ -90,6 +91,7 @@ struct Config {
   float tempMin;
   bool  buzzerEnabled;
   bool  doAlertEnabled;
+  bool  buzzerActiveHigh;
   char  phonePrimary[24];
   char  phoneSecondary[24];
   bool  enableVoiceCall;
@@ -124,6 +126,8 @@ bool  buzzerMuted       = false;
 bool  buzzerTestActive  = false;
 unsigned long buzzerTestEndTime = 0;
 unsigned long lastBuzzerToggleTime = 0;
+unsigned long alarmStartTime = 0;
+const unsigned long BUZZER_AUTO_SILENCE_MS = 20000; // Auto-silence buzzer after 20s of continuous alarm
 bool  buzzerOutputState = false;
 
 // Battery readings
@@ -217,14 +221,15 @@ void readSensors() {
 // =============================================================================
 void setBuzzerHardware(bool active) {
   buzzerOutputState = active;
-  digitalWrite(PIN_BUZZER, active ? BUZZER_ACTIVE_LEVEL : BUZZER_IDLE_LEVEL);
+  bool pinState = config.buzzerActiveHigh ? active : !active;
+  digitalWrite(PIN_BUZZER, pinState ? HIGH : LOW);
 }
 
-void startBuzzerTest(unsigned long durationMs = 3000) {
+void startBuzzerTest(unsigned long durationMs = 2000) {
   buzzerTestActive = true;
   buzzerTestEndTime = millis() + durationMs;
   setBuzzerHardware(true);
-  Serial.println("[BUZZER] Manual buzzer test initiated.");
+  Serial.println("[BUZZER] Manual buzzer test initiated (2s).");
 }
 
 void updateBuzzerStateMachine() {
@@ -244,8 +249,17 @@ void updateBuzzerStateMachine() {
 
   // Priority 2: Alarm condition active and buzzer enabled & not muted
   if (alarmActive && config.buzzerEnabled && !buzzerMuted) {
-    // Pulsing urgent alarm beep: 200ms ON, 200ms OFF
-    const unsigned long BEEP_INTERVAL = 200;
+    // If alarm has been sounding for > 20 seconds, auto-silence to avoid continuous noise
+    if (alarmStartTime > 0 && (now - alarmStartTime > BUZZER_AUTO_SILENCE_MS)) {
+      if (buzzerOutputState) {
+        setBuzzerHardware(false);
+        Serial.println("[BUZZER] Buzzer auto-silenced after 20s window (alarm remains active).");
+      }
+      return;
+    }
+
+    // Pulsing urgent alarm beep: 250ms ON, 250ms OFF
+    const unsigned long BEEP_INTERVAL = 250;
     if (now - lastBuzzerToggleTime >= BEEP_INTERVAL) {
       lastBuzzerToggleTime = now;
       setBuzzerHardware(!buzzerOutputState);
@@ -270,6 +284,7 @@ void evaluateThresholds() {
   alarmActive = highTempBreach || lowTempBreach || doBreach;
 
   if (alarmActive && !wasAlarm) {
+    alarmStartTime = millis();
     String reason = "";
     if (highTempBreach) {
       reason += "HIGH TEMP ALARM (" + String(currentTemp, 1) + "°C >= " + String(config.tempMax, 1) + "°C)\n";
@@ -314,7 +329,8 @@ void loadConfiguration() {
   config.tempMax = prefs.getFloat("tempMax", DEFAULT_TEMP_MAX_THRESHOLD);
   config.tempMin = prefs.getFloat("tempMin", DEFAULT_TEMP_MIN_THRESHOLD);
   config.buzzerEnabled = prefs.getBool("buzzEn", DEFAULT_BUZZER_ENABLED);
-  config.doAlertEnabled = prefs.getBool("doEn", DEFAULT_DO_ALERT_ENABLED);
+  config.doAlertEnabled = prefs.getBool("doEn", false); // Default to false to avoid DO false alarms
+  config.buzzerActiveHigh = prefs.getBool("buzzPol", DEFAULT_BUZZER_ACTIVE_HIGH);
   config.enableVoiceCall = prefs.getBool("voiceCall", DEFAULT_ENABLE_VOICE_CALL);
 
   String p1 = prefs.getString("p1", DEFAULT_PHONE_PRIMARY);
@@ -356,6 +372,7 @@ void saveConfiguration() {
   prefs.putFloat("tempMin", config.tempMin);
   prefs.putBool("buzzEn", config.buzzerEnabled);
   prefs.putBool("doEn", config.doAlertEnabled);
+  prefs.putBool("buzzPol", config.buzzerActiveHigh);
   prefs.putBool("voiceCall", config.enableVoiceCall);
   prefs.putString("p1", config.phonePrimary);
   prefs.putString("p2", config.phoneSecondary);

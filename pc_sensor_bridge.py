@@ -162,8 +162,16 @@ def run_bridge(port: str | None, baud: int, api_url: str, api_key: str):
                         print(f"  [ESP32 LOG] {line}", flush=True)
 
         except serial.SerialException as e:
-            print(f"[BRIDGE ERROR] Serial port error on {target_port}: {e}", flush=True)
-            print("[BRIDGE] Retrying connection in 3 seconds... (Make sure board is plugged in)", flush=True)
+            err_str = str(e)
+            if "PermissionError" in err_str or "Access is denied" in err_str:
+                print(f"\n[BRIDGE ERROR] Port {target_port} is currently locked or busy!", flush=True)
+                print("  * Cause: Another program (like VS Code Serial Monitor or another terminal running pc_sensor_bridge.py) has this port open.", flush=True)
+                print("  * Solution: Close the Serial Monitor tab in VS Code and press Ctrl+C on any other running bridge window.\n", flush=True)
+            elif "FileNotFoundError" in err_str or "cannot find the file" in err_str:
+                print(f"[BRIDGE] Waiting for ESP32-S3 USB connection... (Make sure board is firmly plugged into USB)", flush=True)
+            else:
+                print(f"[BRIDGE ERROR] Serial port error on {target_port}: {e}", flush=True)
+            print("[BRIDGE] Retrying connection in 3 seconds...", flush=True)
             time.sleep(3.0)
         except KeyboardInterrupt:
             print("\n[BRIDGE] Stopped by user. Exiting cleanly.", flush=True)
