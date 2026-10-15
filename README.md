@@ -27,6 +27,20 @@ The demo includes the landing page, fleet command center, shipment list, recover
 traceability timeline, and deterministic disruption simulator. It labels its synthetic data as
 demo data and makes no product safety or release decisions.
 
+### Connected shipment mode
+
+1. Start PostgreSQL and the FastAPI backend using the steps below.
+2. Register a development organization at `POST http://localhost:8000/v1/auth/register` using
+   the API docs and copy the returned `organization_id`.
+3. Copy `frontend/.env.example` to `frontend/.env.local`, then set `VITE_API_BASE_URL` and
+   `VITE_ORGANIZATION_ID` to the running API URL and organization UUID.
+4. Restart the Vite dev server. The Shipments page will load API records and allow shipment
+   creation with an existing or newly created product policy.
+
+Connected shipment endpoints currently scope requests with an organization UUID. The backend's
+authentication token is still a development placeholder, so this prototype must not be exposed
+to untrusted users or treated as production tenant authorization.
+
 ### Backend
 
 1. Create a virtual environment and install dependencies: `python -m venv .venv` then
@@ -48,6 +62,9 @@ is then available at `http://localhost:8000` and its OpenAPI UI at `http://local
   first schema milestone.
 - `POST /v1/auth/register` creates a user, organization, and owner membership.
 - `POST /v1/auth/login` verifies credentials and returns a temporary bearer token placeholder.
+- `GET /v1/product-policies?organization_id=...` and `POST /v1/product-policies` list and create
+  organization product policies.
+- `GET /v1/shipments?organization_id=...` and `POST /v1/shipments` list and create shipments.
 - `POST /v1/telemetry/batch` ingests bounded telemetry batches with duplicate/conflict results.
 - `POST /v1/simulations` runs a deterministic demo scenario.
 - `GET /v1/shipments/{id}/timeline` returns route-event history.
