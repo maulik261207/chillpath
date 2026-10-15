@@ -202,8 +202,8 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
           {[map.origin, map.destination].map((point, index) => <g key={index} transform={`translate(${point[0]} ${point[1]})`} pointerEvents="none">
             <circle className={loading && index === 0 ? 'route-origin-searching' : undefined} r="18" fill="#f1eee5" stroke={index ? '#a65436' : '#68704d'} strokeWidth="4"/><circle r="5" fill={index ? '#a65436' : '#68704d'}/>
             <rect x="23" y="-23" width={index ? 113 : 138} height="46" fill="#f5f1e9" stroke="#817c70"/>
-            <text x="34" y="-3" fill="#282820" fontSize="11" fontFamily="Courier New, monospace">{index ? destinationText.toUpperCase() : originText.toUpperCase()}</text>
-            <text x="34" y="12" fill="#68685f" fontSize="9" fontFamily="Courier New, monospace" letterSpacing="1">{index ? 'DESTINATION' : 'ORIGIN'}</text>
+            <text x="34" y="-3" fill="#282820" fontSize="12" fontFamily="'Neuton', Georgia, serif" fontWeight="600">{index ? destinationText.toUpperCase() : originText.toUpperCase()}</text>
+            <text x="34" y="12" fill="#68685f" fontSize="10" fontFamily="'Neuton', Georgia, serif" letterSpacing="1">{index ? 'DESTINATION' : 'ORIGIN'}</text>
           </g>)}
         </g>
       </svg>
