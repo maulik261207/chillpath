@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { ArrowRight, LocateFixed, Minus, Navigation, Plus, Truck } from './uiMarks';
+import { ArrowRight, Navigation, Truck } from './uiMarks';
 import { autocompleteAddress, getRoute, mapTileUrl, type MapRoute, type TravelMode } from './api';
 
 type Coordinate = { latitude: number; longitude: number };
@@ -86,7 +86,8 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
 
   const [viewport, setViewport] = useState({ x: 0, y: 0, scale: 1 });
   const [dragging, setDragging] = useState(false);
-  const dragStartRef = useRef<{ x: number; y: number; viewX: number; viewY: number } | null>(null);
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   useEffect(() => {
@@ -155,8 +156,8 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
       const ratio = nextScale / current.scale;
       const nextX = WIDTH / 2 - (WIDTH / 2 - current.x) * ratio;
       const nextY = HEIGHT / 2 - (HEIGHT / 2 - current.y) * ratio;
-      const maxPanX = (nextScale - 1) * (WIDTH / 2) + 60;
-      const maxPanY = (nextScale - 1) * (HEIGHT / 2) + 60;
+      const maxPanX = 800 * nextScale;
+      const maxPanY = 600 * nextScale;
 
       return {
         scale: nextScale,
@@ -170,12 +171,13 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
     setViewport({ x: 0, y: 0, scale: 1 });
   };
 
+  // Smooth wheel zoom without page scroll jitter
   useEffect(() => {
     const el = svgRef.current;
     if (!el) return;
     const handleWheel = (event: WheelEvent) => {
       event.preventDefault();
-      const factor = event.deltaY < 0 ? 1.15 : 0.87;
+      const factor = event.deltaY < 0 ? 1.18 : 0.85;
       zoomBy(factor);
     };
     el.addEventListener('wheel', handleWheel, { passive: false });
@@ -184,41 +186,44 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
     };
   }, []);
 
-  const onPointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    (event.currentTarget as Element).setPointerCapture(event.pointerId);
+  // Window-level dragging for buttery-smooth panning across the whole viewport
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
     setDragging(true);
-    dragStartRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      viewX: viewport.x,
-      viewY: viewport.y,
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startViewX = viewportRef.current.x;
+    const startViewY = viewportRef.current.y;
+    const svgEl = svgRef.current;
+    if (!svgEl) return;
+    const rect = svgEl.getBoundingClientRect();
+    const scaleFactorX = WIDTH / rect.width;
+    const scaleFactorY = HEIGHT / rect.height;
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const dx = (moveEvent.clientX - startX) * scaleFactorX;
+      const dy = (moveEvent.clientY - startY) * scaleFactorY;
+      const currentScale = viewportRef.current.scale;
+      const maxPanX = 900 * currentScale;
+      const maxPanY = 650 * currentScale;
+      setViewport(prev => ({
+        ...prev,
+        x: Math.max(-maxPanX, Math.min(maxPanX, startViewX + dx)),
+        y: Math.max(-maxPanY, Math.min(maxPanY, startViewY + dy)),
+      }));
     };
-  };
 
-  const onPointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
-    if (!dragging || !dragStartRef.current || !svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const dx = (event.clientX - dragStartRef.current.x) * (WIDTH / rect.width);
-    const dy = (event.clientY - dragStartRef.current.y) * (HEIGHT / rect.height);
-    const maxPanX = (viewport.scale - 1) * (WIDTH / 2) + 60;
-    const maxPanY = (viewport.scale - 1) * (HEIGHT / 2) + 60;
-    const targetX = dragStartRef.current.viewX + dx;
-    const targetY = dragStartRef.current.viewY + dy;
-    setViewport(prev => ({
-      ...prev,
-      x: Math.max(-maxPanX, Math.min(maxPanX, targetX)),
-      y: Math.max(-maxPanY, Math.min(maxPanY, targetY)),
-    }));
-  };
+    const onPointerUp = () => {
+      setDragging(false);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+    };
 
-  const onPointerUp = (event: React.PointerEvent<SVGSVGElement>) => {
-    setDragging(false);
-    dragStartRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
   };
 
   const map = useMemo(() => {
@@ -232,8 +237,9 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
     const centerTileX = Math.floor(center[0] / TILE);
     const centerTileY = Math.floor(center[1] / TILE);
     const tiles = [];
-    for (let x = centerTileX - 3; x <= centerTileX + 3; x += 1) {
-      for (let y = centerTileY - 3; y <= centerTileY + 2; y += 1) {
+    // 11x9 tile buffer for uninterrupted panning
+    for (let x = centerTileX - 5; x <= centerTileX + 5; x += 1) {
+      for (let y = centerTileY - 4; y <= centerTileY + 4; y += 1) {
         tiles.push({ x, y, left: x * TILE - center[0] + WIDTH / 2, top: y * TILE - center[1] + HEIGHT / 2 });
       }
     }
@@ -316,9 +322,6 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
           tabIndex={-1}
           className={dragging ? 'is-dragging' : ''}
           onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
         >
           <g
             transform={`translate(${viewport.x} ${viewport.y}) translate(${WIDTH / 2} ${HEIGHT / 2}) scale(${viewport.scale}) translate(${-WIDTH / 2} ${-HEIGHT / 2})`}
@@ -399,31 +402,45 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
           </g>
         </svg>
 
-        {/* Zoom Controls */}
+        {/* Clean Zoom Controls with real SVG icons and proper clearance */}
         <div className="map-controls" aria-label="Map controls">
           <button
             type="button"
             onClick={() => zoomBy(1.25)}
             aria-label="Zoom in"
+            title="Zoom in"
             disabled={viewport.scale >= 3.95}
           >
-            <Plus size={16} />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
           </button>
           <button
             type="button"
             onClick={() => zoomBy(0.8)}
             aria-label="Zoom out"
+            title="Zoom out"
             disabled={viewport.scale <= 1.05}
           >
-            <Minus size={16} />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
           </button>
           <button
             type="button"
             onClick={resetView}
             aria-label="Reset map view"
+            title="Reset map view"
             disabled={viewport.scale <= 1.05 && Math.abs(viewport.x) < 2 && Math.abs(viewport.y) < 2}
           >
-            <LocateFixed size={16} />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="12" cy="12" r="4" />
+              <line x1="12" y1="2" x2="12" y2="6" />
+              <line x1="12" y1="18" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="6" y2="12" />
+              <line x1="18" y1="12" x2="22" y2="12" />
+            </svg>
           </button>
         </div>
         <a className="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
