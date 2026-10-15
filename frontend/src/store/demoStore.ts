@@ -176,6 +176,7 @@ export function statusLabel(scenario: Scenario, evidence: EvidenceState, offline
   if (evidence === 'insufficient_evidence' && scenario !== 'normal') return 'Insufficient evidence';
   if (scenario === 'destination_closure') return 'Destination unavailable';
   if (scenario === 'traffic_delay') return 'Route delay detected';
+  if (scenario === 'refrigeration_failure') return 'Cooling disruption';
   return 'All systems nominal';
 }
 
