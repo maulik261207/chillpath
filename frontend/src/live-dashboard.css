@@ -1,0 +1,316 @@
+/* ─────────────────────────────────────────────
+   Live Dashboard — matches ChillPath redesign theme
+   Warm beige/cream, serif fonts, sharp corners, earthy palette
+   ───────────────────────────────────────────── */
+
+/* Page header */
+.live-page-heading {
+  margin-bottom: 28px;
+}
+.live-page-heading .eyebrow {
+  font-family: 'Neuton', Georgia, serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: #7a402d;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.live-page-heading h1 {
+  font-family: 'Libre Baskerville', Georgia, 'Times New Roman', serif !important;
+  font-size: clamp(34px, 4vw, 48px) !important;
+  font-weight: 700 !important;
+  color: #282820 !important;
+  letter-spacing: -.03em !important;
+  margin: 6px 0 8px !important;
+}
+.live-page-heading p {
+  font-family: 'Neuton', Georgia, serif;
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: #55564e;
+}
+
+/* Status Bar */
+.live-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border: 1px solid #c2bbab;
+  background: #faf8f1;
+  font-family: 'Neuton', Georgia, serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #282820;
+}
+.live-online { border-color: #77805b; background: #edf0e4; color: #3e492e; }
+.live-offline { border-color: #a65436; background: #f1e2dc; color: #713b2c; }
+.live-waiting { border-color: #9b765f; background: #f2e8df; color: #5f4032; }
+.live-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.live-online .live-dot { animation: livePulse 1.5s ease-in-out infinite; }
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.live-status-text { flex: 1; }
+.live-updated { font-weight: 400; color: #696960; font-size: 0.9rem; }
+
+/* Alarm Banner */
+.live-alarm-banner {
+  background: #a65436;
+  color: #fff;
+  text-align: center;
+  padding: 14px 20px;
+  border: 1px solid #7a402d;
+  font-family: 'Libre Baskerville', Georgia, serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  animation: alarmFlash 1.2s ease-in-out infinite;
+}
+@keyframes alarmFlash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
+/* Gauge Section */
+.live-gauge-section {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+}
+.live-gauge-card {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.live-gauge-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.live-gauge-svg circle:first-child {
+  stroke: #d5cfc1;
+}
+.live-gauge-value {
+  font-family: 'Libre Baskerville', Georgia, serif !important;
+  font-size: 2.8rem;
+  font-weight: 700;
+  line-height: 1;
+  z-index: 1;
+  color: #282820;
+  transition: color 0.4s ease;
+}
+.live-gauge-unit {
+  font-size: 1.1rem;
+  font-weight: 500;
+  opacity: 0.7;
+}
+.live-gauge-secondary {
+  font-family: 'Neuton', Georgia, serif;
+  font-size: 1rem;
+  color: #696960;
+  z-index: 1;
+  margin-top: 4px;
+}
+
+/* KPI Grid */
+.live-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid #aaa391;
+  border-bottom: 1px solid #aaa391;
+}
+@media (max-width: 900px) {
+  .live-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .live-kpi-grid { grid-template-columns: 1fr; }
+}
+.live-kpi {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-right: 1px solid #aaa391;
+}
+.live-kpi:last-child { border-right: 0; }
+@media (max-width: 900px) {
+  .live-kpi:nth-child(2n) { border-right: 0; }
+  .live-kpi:nth-child(n+3) { border-top: 1px solid #aaa391; }
+}
+@media (max-width: 560px) {
+  .live-kpi { border-right: 0; border-bottom: 1px solid #aaa391; }
+  .live-kpi:last-child { border-bottom: 0; }
+}
+.live-kpi-label {
+  font-family: 'Neuton', Georgia, serif;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #68685f;
+  font-weight: 700;
+}
+.live-kpi-value {
+  font-family: 'Libre Baskerville', Georgia, serif !important;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #282820;
+}
+.live-alarm-text { color: #a65436 !important; }
+.live-ok-text { color: #68704d !important; }
+
+/* Device Info */
+.live-device-info {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  background: #e5dfd1;
+  border: 1px solid #aaa391;
+  font-family: 'Neuton', Georgia, serif;
+  font-size: 0.95rem;
+  color: #55564e;
+}
+.live-device-info b {
+  color: #282820;
+  margin-left: 4px;
+  font-family: 'Libre Baskerville', Georgia, serif !important;
+}
+
+/* Sparkline Section */
+.live-sparkline-section {
+  background: #faf8f1;
+  border: 1px solid #c2bbab;
+  padding: 20px;
+}
+.live-sparkline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.live-sparkline-header .panel-title {
+  font-family: 'Libre Baskerville', Georgia, serif !important;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #282820;
+}
+.live-sparkline-count {
+  font-family: 'Neuton', Georgia, serif;
+  font-size: 0.9rem;
+  color: #696960;
+}
+.live-sparkline-container {
+  height: 100px;
+  position: relative;
+}
+.live-sparkline-svg {
+  width: 100%;
+  height: 100%;
+}
+.live-sparkline-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #696960;
+  font-family: 'Neuton', Georgia, serif;
+  font-size: 1rem;
+}
+
+/* Log Section */
+.live-log-section {
+  background: #faf8f1;
+  border: 1px solid #c2bbab;
+  padding: 20px;
+}
+.live-log-header {
+  margin-bottom: 14px;
+}
+.live-log-header .panel-title {
+  font-family: 'Libre Baskerville', Georgia, serif !important;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #282820;
+}
+.live-log-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.live-log-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #dcd5c6;
+  font-family: 'Neuton', Georgia, serif;
+  font-size: 0.95rem;
+  align-items: center;
+}
+.live-log-row:hover {
+  background: #e5dfd1;
+}
+.live-log-alarm {
+  background: #f1e2dc;
+}
+.live-log-time { color: #68685f; }
+.live-log-temp {
+  font-weight: 700;
+  font-family: 'Libre Baskerville', Georgia, serif !important;
+}
+.live-log-hum { color: #7a6c55; }
+.live-log-status { color: #68685f; }
+.live-log-empty {
+  padding: 18px;
+  text-align: center;
+  color: #696960;
+  font-family: 'Neuton', Georgia, serif;
+  font-size: 1rem;
+}
+
+/* Waiting Message */
+.live-waiting-message {
+  text-align: center;
+  padding: 80px 20px;
+}
+.live-waiting-icon {
+  font-size: 3rem;
+  margin-bottom: 20px;
+}
+.live-waiting-message h3 {
+  font-family: 'Libre Baskerville', Georgia, serif !important;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #282820;
+  margin-bottom: 10px;
+}
+.live-waiting-message p {
+  color: #55564e;
+  font-family: 'Neuton', Georgia, serif;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+.live-waiting-hint {
+  margin-top: 20px;
+}
+.live-waiting-hint code {
+  background: #e5dfd1;
+  border: 1px solid #aaa391;
+  padding: 6px 14px;
+  font-family: 'Neuton', Georgia, serif;
+  font-size: 1rem;
+  color: #282820;
+}

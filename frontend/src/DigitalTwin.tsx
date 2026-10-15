@@ -39,9 +39,10 @@ export default function DigitalTwin({ scenario, temperatureC = 4.2 }: {
       dpr={[1, 1.35]}
       gl={{ antialias: true, alpha: true }}
     >
-      <ambientLight intensity={1.25} />
-      <directionalLight position={[4, 5, 4]} intensity={2.4} color="#d8f5ff" />
-      <pointLight position={[-3, 1, 1]} intensity={danger ? 2.8 : 1.4} color={danger ? '#fa744f' : fault ? '#a88aff' : '#45d7f5'} />
+      {/* Warm neutral lighting to match the earthy theme */}
+      <ambientLight intensity={1.4} color="#f5efe3" />
+      <directionalLight position={[4, 5, 4]} intensity={2.2} color="#e8dcc8" />
+      <pointLight position={[-3, 1, 1]} intensity={danger ? 2.4 : 1.2} color={danger ? '#a65436' : fault ? '#7a6c55' : '#68704d'} />
       <Suspense fallback={null}>
         <AnimatedContainer danger={danger} fault={fault} temperatureC={temperatureC} animate={!reducedMotion && visible && inView} />
       </Suspense>
@@ -97,21 +98,39 @@ function AnimatedContainer({ danger, fault, temperatureC, animate }: {
 }
 
 function Container({ danger, fault, temperatureC }: { danger: boolean; fault: boolean; temperatureC: number }) {
-  const color = danger ? '#ef704d' : fault ? '#a88aff' : '#53d7e9';
-  const materialColor = temperatureC > 8 ? '#704438' : '#233743';
+  // Cohesive warm architectural palette matching the website theme
+  const isHighTemp = temperatureC > 35 || danger;
+  const accentColor = isHighTemp ? '#a65436' : fault ? '#7a6c55' : '#68704d';
+  const bodyColor = isHighTemp ? '#d4b5a6' : fault ? '#cdc5b7' : '#dfd8cb';
+  const ribColor = isHighTemp ? '#bfa091' : '#b7af9f';
+  const frameColor = '#8e8677';
+  const endCapColor = '#a8a090';
+  const coolingColor = '#6b6657';
+  const baseColor = '#c2baa8';
+
   return <group>
-    <mesh castShadow receiveShadow><boxGeometry args={[3.1, 1.85, 1.65]} /><meshStandardMaterial color={materialColor} metalness={0.78} roughness={0.33} /></mesh>
-    {Array.from({ length: 17 }, (_, i) => <mesh key={i} position={[-1.48 + i * 0.185, 0, 0.836]}><boxGeometry args={[0.055, 1.77, 0.035]} /><meshStandardMaterial color="#6a8390" metalness={0.8} roughness={0.31} /></mesh>)}
-    <mesh position={[0, 0, -0.84]}><boxGeometry args={[3.1, 1.84, 0.035]} /><meshStandardMaterial color="#152a36" metalness={0.6} /></mesh>
-    <mesh position={[-1.63, 0, 0]}><boxGeometry args={[0.18, 1.95, 1.82]} /><meshStandardMaterial color="#9bb2bc" metalness={0.75} roughness={0.3} /></mesh>
-    <mesh position={[1.63, 0, 0]}><boxGeometry args={[0.18, 1.95, 1.82]} /><meshStandardMaterial color="#9bb2bc" metalness={0.75} roughness={0.3} /></mesh>
-    <mesh position={[1.8, 0.3, 0.15]}><boxGeometry args={[0.48, 1.3, 0.9]} /><meshStandardMaterial color="#1b3543" metalness={0.72} roughness={0.28} /></mesh>
-    <mesh position={[1.8, -0.42, 0.15]}><boxGeometry args={[0.5, 0.08, 0.95]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={2} /></mesh>
-    <mesh position={[1.62, 0.28, 0.66]}><sphereGeometry args={[0.07, 16, 16]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={4} /></mesh>
+    {/* Main body */}
+    <mesh castShadow receiveShadow><boxGeometry args={[3.1, 1.85, 1.65]} /><meshStandardMaterial color={bodyColor} metalness={0.25} roughness={0.65} /></mesh>
+    {/* Ribs on front face */}
+    {Array.from({ length: 17 }, (_, i) => <mesh key={i} position={[-1.48 + i * 0.185, 0, 0.836]}><boxGeometry args={[0.055, 1.77, 0.035]} /><meshStandardMaterial color={ribColor} metalness={0.3} roughness={0.6} /></mesh>)}
+    {/* Back panel */}
+    <mesh position={[0, 0, -0.84]}><boxGeometry args={[3.1, 1.84, 0.035]} /><meshStandardMaterial color={frameColor} metalness={0.35} roughness={0.5} /></mesh>
+    {/* Left end cap */}
+    <mesh position={[-1.63, 0, 0]}><boxGeometry args={[0.18, 1.95, 1.82]} /><meshStandardMaterial color={endCapColor} metalness={0.35} roughness={0.5} /></mesh>
+    {/* Right end cap */}
+    <mesh position={[1.63, 0, 0]}><boxGeometry args={[0.18, 1.95, 1.82]} /><meshStandardMaterial color={endCapColor} metalness={0.35} roughness={0.5} /></mesh>
+    {/* Cooling unit housing */}
+    <mesh position={[1.8, 0.3, 0.15]}><boxGeometry args={[0.48, 1.3, 0.9]} /><meshStandardMaterial color={coolingColor} metalness={0.4} roughness={0.5} /></mesh>
+    {/* Cooling status strip */}
+    <mesh position={[1.8, -0.42, 0.15]}><boxGeometry args={[0.5, 0.08, 0.95]} /><meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={1.8} /></mesh>
+    {/* Status indicator light */}
+    <mesh position={[1.62, 0.28, 0.66]}><sphereGeometry args={[0.07, 16, 16]} /><meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={2.5} /></mesh>
+    {/* Sensor nodes */}
     {[-0.75, 0.05, 0.75].map((x, i) => <group key={x} position={[x, 0.48, 0.9]}>
-      <mesh><sphereGeometry args={[0.07, 16, 16]} /><meshStandardMaterial color={i === 2 && fault ? '#af91ff' : color} emissive={i === 2 && fault ? '#af91ff' : color} emissiveIntensity={3} /></mesh>
+      <mesh><sphereGeometry args={[0.07, 16, 16]} /><meshStandardMaterial color={i === 2 && fault ? '#7a6c55' : accentColor} emissive={i === 2 && fault ? '#7a6c55' : accentColor} emissiveIntensity={2} /></mesh>
       <Html distanceFactor={8}><div className="sensor-label">T-{String(i + 2).padStart(2, '0')} <b>{(temperatureC + (i - 1) * 0.4).toFixed(1)}°</b></div></Html>
     </group>)}
-    <mesh position={[0, -0.98, 0]}><boxGeometry args={[3.5, 0.08, 2]} /><meshStandardMaterial color="#101f29" /></mesh>
+    {/* Base platform */}
+    <mesh position={[0, -0.98, 0]}><boxGeometry args={[3.5, 0.08, 2]} /><meshStandardMaterial color={baseColor} roughness={0.7} metalness={0.15} /></mesh>
   </group>;
 }

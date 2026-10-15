@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import text
@@ -71,13 +71,45 @@ async def ready() -> dict[str, str]:
 @app.get("/live", tags=["dashboard"])
 @app.get("/dashboard", tags=["dashboard"])
 @app.get("/gateway", tags=["dashboard"])
-async def live_sensor_dashboard():
+async def live_sensor_dashboard(request: Request):
     from pathlib import Path
-    from fastapi.responses import FileResponse, HTMLResponse
+    from datetime import datetime, timezone
+    from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+    from app.api.telemetry import _latest_live_telemetry
+
+    accept = request.headers.get("accept", "")
+    wants_json = (
+        "application/json" in accept
+        or request.query_params.get("format") == "json"
+        or "x-api-key" in request.headers
+        or "api_key" in request.query_params
+    )
+
+    if wants_json:
+        if _latest_live_telemetry is None:
+            return JSONResponse({
+                "online": False,
+                "message": "No live telemetry received yet. Run pc_sensor_bridge.py on your PC to stream data.",
+                "data": None,
+            })
+        now = datetime.now(timezone.utc)
+        rx_str = _latest_live_telemetry.get("received_at", now.isoformat())
+        try:
+            rx = datetime.fromisoformat(rx_str)
+            age = (now - rx).total_seconds()
+        except Exception:
+            age = 0.0
+        return JSONResponse({
+            "online": age < 15.0,
+            "seconds_since_last_packet": round(age, 1),
+            "data": _latest_live_telemetry,
+        })
+
     path = Path(__file__).resolve().parent.parent / "test_web_api.html"
     if path.exists():
         return FileResponse(path, media_type="text/html")
     return HTMLResponse("<h3>Dashboard HTML not found</h3>", status_code=404)
+
 
 
 
