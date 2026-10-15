@@ -172,13 +172,12 @@ async def ingest_live_telemetry(
     if len(_live_history) > MAX_HISTORY_SIZE:
         _live_history.pop(0)
 
-    # Automatic SMS Alert dispatch when alarm or threshold is breached
+    # Automatic SMS Alert dispatch only on genuine extreme temperature breach
     now_epoch = datetime.now(timezone.utc).timestamp()
+    temp_c = data.get("temperature_c", 25.0)
     is_breached = (
-        data.get("alarm_active") is True
-        or data.get("do_tripped") is True
-        or data.get("temperature_c", 25.0) > 35.0
-        or data.get("temperature_c", 25.0) < 2.0
+        (temp_c > 50.0 or temp_c < -10.0)
+        and data.get("alarm_active") is True
     )
     sms_status = None
     if is_breached and (now_epoch - _last_auto_sms_time >= SMS_ALERT_COOLDOWN_SEC):

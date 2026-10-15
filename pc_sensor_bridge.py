@@ -77,8 +77,10 @@ def upload_telemetry(payload: dict, api_url: str, api_key: str) -> tuple[bool, i
             return True, code, "OK"
     except urllib.error.HTTPError as e:
         err_msg = e.read().decode("utf-8", errors="replace")
-        return False, e.code, f"HTTP Error {e.code}: {err_msg}"
     except urllib.error.URLError as e:
+        reason_str = str(e.reason)
+        if "10061" in reason_str or "actively refused" in reason_str:
+            return False, 0, "Web API Offline (FastAPI server on port 8000 is not running)"
         return False, 0, f"Network Error: {e.reason}"
     except Exception as e:
         return False, 0, f"Unexpected: {str(e)}"

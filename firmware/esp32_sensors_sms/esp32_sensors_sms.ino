@@ -72,10 +72,10 @@ const float VCC_VOLTAGE       = 3.3;     // Supply voltage (3.3V)
 // =============================================================================
 // DEFAULT FACTORY CONFIGURATION
 // =============================================================================
-const float  DEFAULT_TEMP_MAX_THRESHOLD   = 35.0;          // Celsius
-const float  DEFAULT_TEMP_MIN_THRESHOLD   = 2.0;           // Celsius (cold-chain low limit)
-const bool   DEFAULT_BUZZER_ENABLED       = true;          // Sound buzzer on alarm
-const bool   DEFAULT_DO_ALERT_ENABLED     = false;         // Default to FALSE to prevent uncalibrated potentiometer false alarms
+const float  DEFAULT_TEMP_MAX_THRESHOLD   = 50.0;          // Celsius (raised to 50°C so room temp never triggers alarm)
+const float  DEFAULT_TEMP_MIN_THRESHOLD   = -10.0;         // Celsius (lowered to -10°C)
+const bool   DEFAULT_BUZZER_ENABLED       = false;         // Default buzzer to DISABLED so it never buzzes continuously
+const bool   DEFAULT_DO_ALERT_ENABLED     = false;         // DO pin does NOT trigger alarm
 const bool   DEFAULT_BUZZER_ACTIVE_HIGH   = true;          // Active-HIGH buzzer module polarity
 const char*  DEFAULT_PHONE_PRIMARY        = "+919557066830"; // E.164 format (+[CountryCode][Number])
 const char*  DEFAULT_PHONE_SECONDARY      = "";            // Optional 2nd contact
@@ -221,14 +221,21 @@ void readSensors() {
 // =============================================================================
 void setBuzzerHardware(bool active) {
   buzzerOutputState = active;
-  bool pinState = config.buzzerActiveHigh ? active : !active;
-  digitalWrite(PIN_BUZZER, pinState ? HIGH : LOW);
+  if (active && config.buzzerEnabled && !buzzerMuted) {
+    pinMode(PIN_BUZZER, OUTPUT);
+    digitalWrite(PIN_BUZZER, config.buzzerActiveHigh ? HIGH : LOW);
+  } else {
+    // When inactive or muted: float the pin with pulldown to guarantee 0 current and 100% silence
+    pinMode(PIN_BUZZER, INPUT_PULLDOWN);
+    digitalWrite(PIN_BUZZER, LOW);
+  }
 }
 
 void startBuzzerTest(unsigned long durationMs = 2000) {
   buzzerTestActive = true;
   buzzerTestEndTime = millis() + durationMs;
-  setBuzzerHardware(true);
+  pinMode(PIN_BUZZER, OUTPUT);
+  digitalWrite(PIN_BUZZER, config.buzzerActiveHigh ? HIGH : LOW);
   Serial.println("[BUZZER] Manual buzzer test initiated (2s).");
 }
 
@@ -278,10 +285,9 @@ void updateBuzzerStateMachine() {
 void evaluateThresholds() {
   bool highTempBreach = sensorValid && (currentTemp >= config.tempMax);
   bool lowTempBreach  = sensorValid && (currentTemp <= config.tempMin);
-  bool doBreach       = config.doAlertEnabled && doTripped;
 
   bool wasAlarm = alarmActive;
-  alarmActive = highTempBreach || lowTempBreach || doBreach;
+  alarmActive = highTempBreach || lowTempBreach; // DO pin will NEVER trigger an alarm!
 
   if (alarmActive && !wasAlarm) {
     alarmStartTime = millis();
@@ -291,9 +297,6 @@ void evaluateThresholds() {
     }
     if (lowTempBreach) {
       reason += "LOW TEMP ALARM (" + String(currentTemp, 1) + "°C <= " + String(config.tempMin, 1) + "°C)\n";
-    }
-    if (doBreach) {
-      reason += "HARDWARE COMPARATOR TRIGGERED (DO Pin 5 = LOW)\n";
     }
 
     Serial.printf("\n*** [ALARM DETECTED] ***\n%s", reason.c_str());
@@ -326,10 +329,10 @@ void loadConfiguration() {
     prefs.putBool("init", true);
   }
 
-  config.tempMax = prefs.getFloat("tempMax", DEFAULT_TEMP_MAX_THRESHOLD);
-  config.tempMin = prefs.getFloat("tempMin", DEFAULT_TEMP_MIN_THRESHOLD);
-  config.buzzerEnabled = prefs.getBool("buzzEn", DEFAULT_BUZZER_ENABLED);
-  config.doAlertEnabled = prefs.getBool("doEn", false); // Default to false to avoid DO false alarms
+  config.tempMax = 50.0; // Override NVS to 50°C
+  config.tempMin = -10.0; // Override NVS to -10°C
+  config.buzzerEnabled = false; // Override NVS: Buzzer is OFF by default
+  config.doAlertEnabled = false; // Override NVS: DO is disabled
   config.buzzerActiveHigh = prefs.getBool("buzzPol", DEFAULT_BUZZER_ACTIVE_HIGH);
   config.enableVoiceCall = prefs.getBool("voiceCall", DEFAULT_ENABLE_VOICE_CALL);
 
@@ -1202,18 +1205,13 @@ void setup() {
   Serial.println("  ESP32-S3 Temperature Sensor & Active Buzzer System");
   Serial.println("=======================================================");
 
-  // 1. Configure Hardware GPIO Pins
-  pinMode(PIN_TEMP_DO, INPUT_PULLUP);
-  pinMode(PIN_BUZZER, OUTPUT);
-  setBuzzerHardware(false);
-
-  // Quick power-on beep to confirm buzzer wiring
-  setBuzzerHardware(true);
-  delay(100);
-  setBuzzerHardware(false);
-
-  // 2. Load Configuration from Flash NVS
+  // 1. Load Configuration
   loadConfiguration();
+
+  // 2. Configure Hardware GPIO Pins
+  pinMode(PIN_TEMP_DO, INPUT_PULLUP);
+  setBuzzerHardware(false); // 100% silent on boot
+  buzzerMuted = true;
 
   // 3. Configure ADC for AO (GPIO 4) and Battery (GPIO 1)
   analogReadResolution(12); // 12-bit ADC (0 - 4095)
