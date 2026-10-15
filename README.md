@@ -83,8 +83,9 @@ Route scores are planning inputs and do not claim live map, GPS, traffic, or obs
 
 ## Maps and rerouting
 
-Set `GEOAPIFY_API_KEY` in the backend `.env`; never place it in a `VITE_` variable or frontend
-source. The frontend can call:
+Set `TOMTOM_API_KEY` and `GEOAPIFY_API_KEY` in the backend `.env`; never place either key in a
+`VITE_` variable or frontend source. TomTom provides traffic-aware car and truck routes, with
+Geoapify as the server-side fallback. The frontend can call:
 
 - `GET /v1/maps/autocomplete?text=...` for address suggestions.
 - `POST /v1/maps/route` with two or more `{latitude, longitude}` waypoints and a transport mode.
@@ -97,6 +98,9 @@ The route endpoints return GeoJSON geometry, distance, duration, instructions, a
 transport mode. Reroute options are ranked by duration and then distance. This ranking does not
 claim that roads are obstacle-free; verified live obstacle data would require an additional data
 source.
+
+The landing page renders a basic truck or car route, distance, and travel-time estimate immediately.
+It replaces that estimate with the traffic-aware backend route when the provider responds.
 
 ## Route Intelligence: India and Bengaluru
 

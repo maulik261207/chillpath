@@ -192,3 +192,5 @@ button,a,input,select{max-width:100%}
 .not-found-page footer a:hover,.footer-links a:hover,.legal-page a:hover{text-decoration-color:currentColor}
 .ri-signal{border-left:0!important;border-top:1px solid #aaa391!important;background:#eee8dc!important;color:#4e4f47!important}
 @media(max-width:700px){.connected-number-fields{grid-template-columns:1fr}.landing-map{grid-template-columns:1fr!important;padding-left:18px!important;padding-right:18px!important}.map-frame{min-width:0;width:100%}.top-actions{gap:8px}.crumb span:first-child{display:none}}
+.map-attribution{position:absolute;right:12px;bottom:8px;padding:3px 5px;background:#f5f1e9d9;color:#55564e;font-size:9px;text-decoration:none}
+.map-attribution:hover{text-decoration:underline}

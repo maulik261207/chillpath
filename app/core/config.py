@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     api_prefix: str = "/v1"
     cors_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173"
     geoapify_api_key: str | None = None
+    tomtom_api_key: str | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:

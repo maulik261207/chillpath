@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from app.core.config import get_settings
 from app.schemas.maps import RouteRequest, RerouteRequest
 from app.services.geoapify import GeoapifyClient, summarize_routes
+from app.services.tomtom import TomTomClient, summarize_tomtom_routes
 
 router = APIRouter(prefix="/maps", tags=["maps"])
 
@@ -67,6 +68,16 @@ async def autocomplete(text: str = Query(min_length=2, max_length=200), limit: i
 @router.post("/route")
 async def route(payload: RouteRequest):
     points = [(point.latitude, point.longitude) for point in payload.waypoints]
+    settings = get_settings()
+    if settings.tomtom_api_key and payload.mode in {"drive", "light_truck", "medium_truck", "truck", "heavy_truck", "long_truck", "truck_dangerous_goods"}:
+        try:
+            raw = await TomTomClient(settings.tomtom_api_key).route(points, payload.mode, payload.alternatives)
+            routes = summarize_tomtom_routes(raw, payload.mode)
+            if routes:
+                return {"routes": routes}
+        except httpx.HTTPError:
+            # Geoapify remains a server-side fallback when TomTom is unavailable.
+            pass
     try:
         raw = await client().route(points, payload.mode, payload.alternatives)
         return {"routes": summarize_routes(raw, payload.mode)}

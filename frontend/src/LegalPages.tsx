@@ -11,7 +11,7 @@ const sections = {
   privacy: [
     ['Information we handle', 'The prototype may process account details, organization information, shipment records, route points, sensor readings, and operator actions that you submit.'],
     ['How information is used', 'Information supports authentication, route planning, monitoring, recovery suggestions, system reliability, and development testing.'],
-    ['Third-party services', 'Map requests may use Geoapify and MapTiler. Their services receive the technical request data required to provide maps and routes.'],
+    ['Third-party services', 'Map requests may use TomTom, Geoapify, MapTiler, and OpenStreetMap. Their services receive the technical request data required to provide maps, routes, and traffic-aware travel estimates.'],
     ['Storage and security', 'Local development data may be stored in SQLite or PostgreSQL. API credentials belong in environment files and must not be committed to source control.'],
     ['Your choices', 'Do not submit sensitive production data to the prototype. Contact the project owner to request access, correction, or deletion of development data.'],
   ],

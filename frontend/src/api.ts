@@ -32,7 +32,8 @@ export type MapRoute = {
   duration_s: number | null;
   geometry: { type: string; coordinates: unknown };
   instructions: unknown[];
-  provider: 'geoapify';
+  provider: 'geoapify' | 'tomtom' | 'estimate';
+  traffic_delay_s?: number;
 };
 
 export function getRoute(waypoints: MapCoordinate[], mode: TravelMode = 'drive', alternatives = 1) {
@@ -58,5 +59,5 @@ export function autocompleteAddress(text: string) {
 }
 
 export function mapTileUrl(z: number, x: number, y: number) {
-  return `${apiBase}/v1/maps/tiles/${z}/${x}/${y}.png`;
+  return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
 }
