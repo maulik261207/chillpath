@@ -131,8 +131,12 @@ float batteryPercent    = 100.0;
 unsigned long lastSensorReadTime = 0;
 const unsigned long SENSOR_INTERVAL = 500; // Read every 500ms
 
+unsigned long lastSerialPrintTime = 0;
+const unsigned long SERIAL_PRINT_INTERVAL = 2000; // Auto-print telemetry to serial every 2s
+
 unsigned long lastSmsSentTime = 0;
 unsigned long lastBatteryAlertTime = 0;
+
 
 // Incoming GSM buffer for two-way SMS
 String gsmRxBuffer = "";
@@ -284,6 +288,23 @@ void evaluateThresholds() {
 // =============================================================================
 void loadConfiguration() {
   prefs.begin("sensor_cfg", false);
+
+  // If first boot, store initial defaults cleanly to avoid NOT_FOUND logs
+  if (!prefs.isKey("init")) {
+    prefs.putFloat("tempMax", DEFAULT_TEMP_MAX_THRESHOLD);
+    prefs.putFloat("tempMin", DEFAULT_TEMP_MIN_THRESHOLD);
+    prefs.putBool("buzzEn", DEFAULT_BUZZER_ENABLED);
+    prefs.putBool("doEn", DEFAULT_DO_ALERT_ENABLED);
+    prefs.putBool("voiceCall", DEFAULT_ENABLE_VOICE_CALL);
+    prefs.putString("p1", DEFAULT_PHONE_PRIMARY);
+    prefs.putString("p2", DEFAULT_PHONE_SECONDARY);
+    prefs.putString("ssid", "");
+    prefs.putString("pass", "");
+    prefs.putString("tgTok", "");
+    prefs.putString("tgChat", "");
+    prefs.putBool("init", true);
+  }
+
   config.tempMax = prefs.getFloat("tempMax", DEFAULT_TEMP_MAX_THRESHOLD);
   config.tempMin = prefs.getFloat("tempMin", DEFAULT_TEMP_MIN_THRESHOLD);
   config.buzzerEnabled = prefs.getBool("buzzEn", DEFAULT_BUZZER_ENABLED);
@@ -310,8 +331,8 @@ void loadConfiguration() {
   prefs.end();
 
   Serial.println("\n[NVS] Configuration Loaded:");
-  Serial.printf(" - Temp Max Threshold : %.1f °C\n", config.tempMax);
-  Serial.printf(" - Temp Min Threshold : %.1f °C\n", config.tempMin);
+  Serial.printf(" - Temp Max Threshold : %.1f C\n", config.tempMax);
+  Serial.printf(" - Temp Min Threshold : %.1f C\n", config.tempMin);
   Serial.printf(" - Buzzer Enabled     : %s\n", config.buzzerEnabled ? "YES" : "NO");
   Serial.printf(" - DO Alert Enabled   : %s\n", config.doAlertEnabled ? "YES" : "NO");
   Serial.printf(" - Primary Phone      : %s\n", config.phonePrimary);
@@ -1078,7 +1099,7 @@ void processSerialCommand(String cmd) {
 
   if (cmd == "HELP") {
     printHelp();
-  } else if (cmd == "STATUS") {
+  } else if (cmd == "STATUS" || cmd.length() == 0) {
     printStatus();
   } else if (cmd == "RESET") {
     resetToDefaults();
@@ -1194,11 +1215,25 @@ void loop() {
   // 4. Update non-blocking buzzer state machine (pulsing beeps during alarm)
   updateBuzzerStateMachine();
 
-  // 5. Periodic sensor sampling and threshold evaluation
+  // 5. Periodic live telemetry streaming to Serial Monitor
   unsigned long currentMillis = millis();
+  if (currentMillis - lastSerialPrintTime >= SERIAL_PRINT_INTERVAL) {
+    lastSerialPrintTime = currentMillis;
+    Serial.printf("[SENSOR LIVE] Temp: %.1f C (%.1f F) | AO (GPIO 4): %u mV (%.3f V) | DO (GPIO 5): %s | Buzzer: %s | State: %s\n",
+                  currentTemp,
+                  currentTempF,
+                  rawAdcMv,
+                  currentVoltage,
+                  doTripped ? "TRIPPED (LOW)" : "NORMAL (HIGH)",
+                  buzzerOutputState ? "BEEPING" : (buzzerMuted ? "MUTED" : "SILENT"),
+                  alarmActive ? "ALARM ACTIVE!" : "NORMAL");
+  }
+
+  // 6. Periodic sensor sampling and threshold evaluation
   if (currentMillis - lastSensorReadTime >= SENSOR_INTERVAL) {
     lastSensorReadTime = currentMillis;
     readSensors();
     evaluateThresholds();
   }
 }
+
