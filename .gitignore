@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 *.py[cod]
 *.db
+.DS_Store
+datasets/*.csv
 
 # Frontend build output and dependencies
 frontend/node_modules/
