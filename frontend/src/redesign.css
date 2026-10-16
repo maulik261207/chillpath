@@ -197,6 +197,41 @@ footer .footer-links a:hover{color:#7a402d!important;text-decoration-color:curre
 .alert-banner,.guided-banner{background:#e8dfd3!important;border-color:#a65436}.alert-banner b,.guided-banner b{color:#593b2f}.alert-banner span,.guided-banner span{color:#725e54}.badge-warn,.ship-icon.warn,.rank.recommended,.rank.blue,.rank.purple{background:#e1d5c8;color:#7a402d}.badge-purple,.ship-icon.purple{background:#ded8ca;color:#665e4e}.disclaimer{background:#e7e2d6;color:#595a52;border-color:#aaa391}.evidence-row b,.rec-content h3,.event-copy b,.ship-main b,.agent-row b{color:#2d2e29}.rec-content p,.event-copy span,.ship-main>span,.agent-row small{color:#686960}.agent-row>span{background:#ddd8cb;color:#5f6748}
 .table-toolbar,th{background:#e5dfd1}.search-box{background:#f8f5ed;color:#55564e}.search-box input{color:#282820}th{color:#64645c;border-color:#aaa391}td{color:#45463f;border-color:#c9c3b5}td b{color:#282820}.status-tag{background:#d9dfca;color:#4d583a}.status-tag.warn{background:#ead7c9;color:#7d412e}.status-tag.purple{background:#dfd9cc;color:#625947}
 
+.shipments-page .page-heading h1{font-family:'Libre Baskerville',Georgia,serif!important;font-size:clamp(38px,4vw,52px)!important;font-weight:700!important;line-height:1.12!important;letter-spacing:-.035em!important}
+.shipments-page .page-heading .eyebrow{font-size:1rem!important;font-weight:700!important}
+.shipments-page .page-heading p{font-size:1.2rem!important;line-height:1.55!important}
+.shipments-page .metric-label{font-size:1.05rem!important;font-weight:700!important}
+.shipments-page .metric-value{font-size:2.1rem!important}
+.shipments-page .metric-foot{font-size:.95rem!important;line-height:1.35!important}
+.shipments-page .panel-title{font-size:1.25rem!important}
+.shipments-page .panel-sub{font-size:1rem!important}
+.shipments-page th{font-size:.85rem!important;padding-top:14px!important;padding-bottom:14px!important}
+.shipments-page td{font-size:1rem!important;padding-top:15px!important;padding-bottom:15px!important}
+.shipments-page td .cell-sub{font-size:.88rem!important}
+.shipments-page .mono{font-size:1rem!important}
+.shipments-page .status-tag{font-size:.88rem!important;padding:5px 8px!important}
+.shipments-page .table-footer{font-size:.9rem!important}
+
+.sim-wrap .page-heading h1{font-family:'Libre Baskerville',Georgia,serif!important;font-size:clamp(40px,4.5vw,58px)!important;font-weight:700!important;line-height:1.1!important;letter-spacing:-.035em!important}
+.sim-wrap .page-heading .eyebrow{font-size:1rem!important;font-weight:700!important}
+.sim-wrap .page-heading p{font-size:1.2rem!important;line-height:1.55!important}
+.sim-wrap .panel-title{font-size:1.25rem!important;line-height:1.35!important}
+.sim-wrap .panel-sub{font-size:1rem!important;line-height:1.45!important}
+.sim-wrap .scenario-select label{font-family:'Neuton',Georgia,serif!important;font-size:1rem!important;font-weight:700!important}
+.sim-wrap .scenario-select select,.sim-wrap .select-button,.sim-wrap .button{font-size:1rem!important}
+.sim-wrap .sim-stats span,.sim-wrap .evidence-row span{font-size:.95rem!important}
+.sim-wrap .sim-stats b,.sim-wrap .evidence-row b{font-family:'Libre Baskerville',Georgia,serif!important;font-size:1.05rem!important}
+.sim-wrap .chart-key,.sim-wrap .chart-legend{font-size:.95rem!important}
+.sim-wrap .scenario-details h3{font-size:1.35rem!important}.sim-wrap .scenario-details p{font-size:1rem!important;line-height:1.55!important}
+.sim-wrap .mini-rec b{font-size:1.05rem!important}.sim-wrap .mini-rec small{font-size:.9rem!important;line-height:1.4!important}
+.sim-wrap .event-copy b{font-size:1rem!important}.sim-wrap .event-copy span{font-size:.9rem!important}
+.sim-wrap .button,.sim-wrap .text-link,.sim-wrap .arrow-btn,.sim-wrap .select-button{transform:none!important;transition:background-color .16s ease,color .16s ease,border-color .16s ease!important}
+.sim-wrap .button:hover,.sim-wrap .text-link:hover,.sim-wrap .arrow-btn:hover,.sim-wrap .select-button:hover{transform:none!important}
+.sim-wrap .container-model{animation:none!important;filter:drop-shadow(0 18px 20px #554b3b33)!important}
+.sim-wrap .twin-static{background:#ded7c8!important}
+.sim-wrap .static-sensor.sensor-1{z-index:5!important}
+.sim-wrap .static-sensor.sensor-1 .sensor-label{font-size:1rem!important;padding:5px 8px!important}
+
 .engines-page{max-width:1180px}
 .engines-page .page-heading h1{font-family:'Libre Baskerville',Georgia,serif!important;font-size:clamp(34px,4vw,48px)!important;font-weight:700!important;color:#282820!important;letter-spacing:-.03em!important;margin:6px 0 8px!important}
 .engines-page .page-heading p{font-family:'Neuton',Georgia,serif!important;font-size:1.25rem!important;line-height:1.6!important;color:#55564e!important}
@@ -254,6 +289,21 @@ footer .footer-links a:hover{color:#7a402d!important;text-decoration-color:curre
 .legal-page{min-height:100vh;background:#f1eee5;color:#282820;font-family:'Neuton',Georgia,serif!important}.legal-page>header,.legal-page>footer{display:flex;align-items:center;justify-content:space-between;padding:24px clamp(20px,6vw,90px);border-bottom:1px solid #aaa391}.legal-page>header nav,.legal-page>footer{display:flex;gap:24px;font-family:'Libre Baskerville',Georgia,serif}.legal-brand{font:700 clamp(1.4rem,1.25rem + 0.6vw,1.75rem) 'Playfair Display',Georgia,'Times New Roman',serif!important;letter-spacing:-.015em}.legal-page a{color:#4f503f}.legal-page>main{max-width:850px;margin:0 auto;padding:80px 28px}.legal-kicker,.legal-updated{font:12px 'Neuton',Georgia,serif;letter-spacing:.06em;color:#7a402d}.legal-page h1{font:500 clamp(46px,7vw,76px)/1 'Libre Baskerville',Georgia,'Times New Roman',serif!important;margin:18px 0}.legal-intro{font-size:18px;line-height:1.6;color:#5d5e56;padding:25px 0 45px;border-bottom:1px solid #aaa391;font-family:'Neuton',Georgia,serif}.legal-page main section{display:grid;grid-template-columns:70px 1fr;gap:20px;padding:28px 0;border-bottom:1px solid #aaa391}.legal-page main section>span{font:13px 'Neuton',Georgia,serif;color:#7a402d}.legal-page h2{font:500 24px 'Libre Baskerville',Georgia,'Times New Roman',serif!important;margin:0 0 10px}.legal-page main section p{margin:0;color:#5e5f57;line-height:1.7;font-family:'Neuton',Georgia,serif}.legal-page>footer{border-top:1px solid #aaa391;border-bottom:0;color:#66675f}
 
 .ri-page{background:#f1eee5!important;color:#282820!important;font-family:'Neuton',Georgia,serif!important}.ri-heading h1{font-family:'Libre Baskerville',Georgia,'Times New Roman',serif!important}.ri-heading p{color:#606159!important;font-family:'Neuton',Georgia,serif!important}.ri-live{border-radius:0!important;color:#4f503f!important;border-color:#999282!important}.ri-stage{border-radius:0!important;border-color:#817c70!important;background:#d7d1c4!important}.ri-topstrip,.ri-panel{background:#f5f1e9ed!important;color:#2d2e29!important;border-color:#8f8879!important;border-radius:0!important}.ri-panel h2,.ri-list b,.ri-stat-grid b,.ri-route-status strong,.ri-recovery{color:#282820!important}.ri-helper,.ri-note,.ri-list small,.ri-route-status small,.ri-disclaimer,.ri-sensor-note{color:#62635b!important}.ri-segmented,.ri-list button,.ri-stat-grid>div,.ri-field button,.ri-field select,.ri-playback select,.ri-address input,.ri-address-results{background:#e8e2d5!important;color:#282820!important;border-color:#9a9383!important;border-radius:0!important}.ri-segmented button{border-radius:0!important;color:#55564e!important}.ri-segmented button.active,.ri-list button.active{background:#68704d!important;color:#fff!important;border-color:#68704d!important}.ri-primary{background:#68704d!important;color:#fff!important;border-color:#68704d!important}.ri-risk{border-radius:0!important;background:#e8ded2!important;color:#633f31!important}.ri-marker,.ri-vehicle{box-shadow:none!important}.ri-vehicle{border-radius:0!important;background:#68704d!important;color:#fff!important}.ri-error{border-radius:0!important;background:#eaded2!important;color:#633f31!important}.ri-footer{color:#66675e!important}
+.ri-heading h1{font-size:clamp(46px,5vw,68px)!important;line-height:1.06!important;margin:12px 0 12px!important}
+.ri-heading p{font-size:1.2rem!important;line-height:1.5!important}
+.ri-eyebrow,.ri-panel-kicker{font-family:'Neuton',Georgia,serif!important;font-size:1rem!important;font-weight:700!important;letter-spacing:.12em!important}
+.ri-live{font-family:'Neuton',Georgia,serif!important;font-size:1rem!important;font-weight:700!important;padding:12px 18px!important}
+.ri-topstrip{font-family:'Neuton',Georgia,serif!important;font-size:1rem!important;font-weight:700!important;letter-spacing:.08em!important;min-height:54px!important}
+.ri-panel{top:88px!important;width:min(340px,calc(100% - 50px))!important;padding:24px!important}
+.ri-panel h2{font-family:'Libre Baskerville',Georgia,serif!important;font-size:2rem!important;line-height:1.2!important;margin:10px 0 16px!important}
+.ri-helper,.ri-note{font-size:1rem!important;line-height:1.6!important}
+.ri-segmented button{font-size:1rem!important;min-height:42px!important;font-weight:700!important}
+.ri-list button{padding:14px 12px!important;gap:12px!important}
+.ri-list b{font-size:1.05rem!important}.ri-list small{font-size:.9rem!important;line-height:1.4!important}
+.ri-risk{font-family:'Neuton',Georgia,serif!important;font-size:1rem!important}
+.ri-stat-grid span{font-family:'Neuton',Georgia,serif!important;font-size:.9rem!important;font-weight:700!important}
+.ri-stat-grid b{font-size:1.1rem!important;line-height:1.35!important}
+.ri-attribution,.ri-footer{font-family:'Neuton',Georgia,serif!important;font-size:.9rem!important}
 
 @media(max-width:800px){.manifesto-cards article{grid-template-columns:65px 1fr}.manifesto-cards article p{grid-column:2}.metric-grid{display:grid;grid-template-columns:1fr 1fr}.account-grid{grid-template-columns:1fr}.legal-page>header nav{gap:12px}.legal-page main section{grid-template-columns:45px 1fr}}
 @media(max-width:560px){.manifesto-cards article{grid-template-columns:1fr;gap:8px}.manifesto-cards article p{grid-column:auto}.metric-grid{grid-template-columns:1fr}.metric-card{border-right:0;border-bottom:1px solid #aaa391}.billing-options p{grid-template-columns:1fr;gap:5px}.legal-page>header{align-items:flex-start;gap:18px}.legal-page>header nav{flex-wrap:wrap;justify-content:flex-end}.legal-page>footer{align-items:flex-start;flex-direction:column}.engine-flow{align-items:stretch;flex-direction:column}.engine-flow em{transform:rotate(90deg);align-self:center}}

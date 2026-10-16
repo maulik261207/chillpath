@@ -22,7 +22,18 @@ type AddressResult = { formatted?: string; address_line1?: string; address_line2
 const CITY_DEFAULT_START: Coordinate = [77.5902, 12.9711];
 const CITY_DEFAULT_END: Coordinate = [77.6064, 12.9784];
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
-const MAP_KEY = import.meta.env.VITE_MAPTILER_API_KEY as string | undefined;
+const OPENSTREETMAP_STYLE = {
+  version: 8,
+  sources: {
+    openstreetmap: {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors',
+    },
+  },
+  layers: [{ id: 'openstreetmap', type: 'raster', source: 'openstreetmap' }],
+} as const;
 setWorkerUrl(mapWorkerUrl);
 const CORRIDORS = [
   { id: 'IN-1001', product: 'Insulin · demo', from: 'Delhi', to: 'Mumbai', status: 'Healthy', color: '#68704d', points: [[77.209, 28.614], [76.8, 27.2], [73.9, 22.9], [72.878, 19.076]] as Coordinate[], temp: 4.3, humidity: 61, budget: 45, eta: 'Demo estimate pending' },
@@ -116,7 +127,7 @@ export default function RouteIntelligence() {
   const viewRef = useRef<View>('india');
   const runRef = useRef<((closed?: string[]) => void) | null>(null);
   const closedRef = useRef<string[]>([]);
-  const [view, setView] = useState<View>('india');
+  const [view] = useState<View>('india');
   const [graph, setGraph] = useState<RoadGraph | null>(null);
   const [origin, setOrigin] = useState<Coordinate>(CITY_DEFAULT_START);
   const [destination, setDestination] = useState<Coordinate>(CITY_DEFAULT_END);
@@ -180,13 +191,13 @@ export default function RouteIntelligence() {
   }, [selectedShipmentId, view]);
 
   useEffect(() => {
-    if (!mapContainer.current || !MAP_KEY) return;
+    if (!mapContainer.current) return;
     const map = new LibreMapClass({ container: mapContainer.current,
-      style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${encodeURIComponent(MAP_KEY)}`,
+      style: OPENSTREETMAP_STYLE as never,
       center: [79.5, 21], zoom: 4.1, minZoom: 3.3, maxZoom: 17 });
     mapRef.current = map;
     map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right');
-    map.on('error', event => { if (String(event.error?.message ?? '').match(/401|403|style|key|worker failed|webgl/i)) setMapError('Map unavailable. Check the MapTiler browser key, allowed origins, and browser graphics support.'); });
+    map.on('error', event => { if (String(event.error?.message ?? '').match(/401|403|style|worker failed|webgl/i)) setMapError('Map unavailable. Check the internet connection and browser graphics support.'); });
     map.on('load', () => {
       map.addSource('ri-corridors', { type: 'geojson', data: { type: 'FeatureCollection', features: CORRIDORS.map(c => ({ type: 'Feature', properties: { id: c.id, color: c.color }, geometry: { type: 'LineString', coordinates: c.points } })) } as never });
       map.addLayer({ id: 'ri-corridor-lines', type: 'line', source: 'ri-corridors', paint: { 'line-color': ['get', 'color'], 'line-opacity': 0.68, 'line-width': 2.5, 'line-dasharray': [3, 2] } });
@@ -284,7 +295,7 @@ export default function RouteIntelligence() {
     if (!originChosen || !destinationChosen) { setError('Select both addresses from the search suggestions first.'); return; }
     if (!currentGraph) { setError('Load the Bengaluru road graph first.'); return; }
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) { setError('Map is not ready. Check the MapTiler key and reload.'); return; }
+    if (!map || !map.isStyleLoaded()) { setError('Map is still loading. Wait a moment and try again.'); return; }
     abortRef.current?.abort();
     const controller = new AbortController(); abortRef.current = controller;
     const previous = result?.route_available ? result.path_edge_ids : previousPath;
@@ -358,17 +369,16 @@ export default function RouteIntelligence() {
     : 'Shipment conditions are within the demo policy. Continue monitored delivery.';
 
   return <div className="ri-page">
-    <div className="ri-heading"><div><span className="ri-eyebrow">CHILLPATH / ROUTE INTELLIGENCE</span><h1>Know every road ahead.</h1><p>Indian road routes · shipment conditions · recovery decisions</p></div><span className="ri-live"><i/> {graph ? 'BENGALURU ROADS READY' : 'INDIA FLEET VIEW'}</span></div>
+    <div className="ri-heading"><div><span className="ri-eyebrow">CHILLPATH / ROUTE INTELLIGENCE</span><h1>Know every road ahead.</h1><p>Fleet routes · shipment conditions · route insights</p></div><span className="ri-live"><i/> FLEET MAP</span></div>
     <div className="ri-stage">
       <div ref={mapContainer} className="ri-map" role="application" aria-label="Interactive India and Bengaluru road map" />
-      {!MAP_KEY && <div className="ri-map-message">Set VITE_MAPTILER_API_KEY in frontend/.env.local to load the MapTiler basemap.</div>}
       {mapError && <div className="ri-map-message" role="alert">{mapError}</div>}
-      <div className="ri-topstrip"><span><i/> {view === 'india' ? 'INDIA FLEET · DEMONSTRATION CORRIDORS' : graph ? 'BENGALURU CENTRE · ROAD ROUTING' : 'LOADING BENGALURU ROADS'}</span><span>{view === 'city' && graph ? 'SELECT POINTS · RUN ROUTE · REVIEW CONDITIONS' : 'PAN AND ZOOM TO EXPLORE'}</span></div>
+      <div className="ri-topstrip"><span><i/> FLEET MAP · DEMONSTRATION CORRIDORS</span><span>PAN AND ZOOM TO EXPLORE</span></div>
       <aside className={`ri-panel ri-left ${leftOpen ? '' : 'is-collapsed'}`}>
         <button className="ri-panel-toggle" onClick={() => setLeftOpen(!leftOpen)} aria-label="Toggle route controls">{leftOpen ? <X size={16}/> : <Route size={17}/>}</button>
         {leftOpen && <><div className="ri-panel-kicker">MAP CONTROL</div><h2>Route explorer</h2>
-          <div className="ri-segmented"><button className={view === 'india' ? 'active' : ''} onClick={() => setView('india')}>India fleet</button><button className={view === 'city' ? 'active' : ''} onClick={() => setView('city')}>City search</button></div>
-          {view === 'india' ? <><p className="ri-helper">These seeded corridors illustrate shipment coverage. Road routes are available in the supported Bengaluru area.</p><div className="ri-list">{CORRIDORS.map(item => <button key={item.id} className={selected.id === item.id ? 'active' : ''} onClick={() => { setSelected(item); mapRef.current?.flyTo({ center: item.points[Math.floor(item.points.length / 2)], zoom: item.id === 'IN-1002' ? 7 : 5.4 }); }}><span className="ri-list-dot" style={{ background: item.color }}/><span><b>{item.from} → {item.to}</b><small>{item.id} · {item.product}</small></span><ArrowRight size={14}/></button>)}</div></> : <>
+          <div className="ri-segmented"><button className="active">Fleet map</button></div>
+          {view === 'india' ? <><p className="ri-helper">These seeded corridors illustrate shipment coverage across the fleet.</p><div className="ri-list">{CORRIDORS.map(item => <button key={item.id} className={selected.id === item.id ? 'active' : ''} onClick={() => { setSelected(item); mapRef.current?.flyTo({ center: item.points[Math.floor(item.points.length / 2)], zoom: item.id === 'IN-1002' ? 7 : 5.4 }); }}><span className="ri-list-dot" style={{ background: item.color }}/><span><b>{item.from} → {item.to}</b><small>{item.id} · {item.product}</small></span><ArrowRight size={14}/></button>)}</div></> : <>
             <p className="ri-helper">City coverage: {graph?.coverage ?? 'Loading cached roads…'} Search for two addresses within this area.</p>
             <label className="ri-field"><span>SHIPMENT CONDITIONS</span><select value={selectedShipmentId} onChange={event => { setSelectedShipmentId(event.target.value); setAssessment(null); }}><option value="demo">Demo simulation</option>{storedShipments.map(shipment => <option value={shipment.id} key={shipment.id}>{shipment.external_ref} · stored</option>)}</select></label>
             {selectedShipmentId !== 'demo' && <p className="ri-note">Stored sensor readings and product policy are read from the API. Search addresses manually; verified shipment GPS and route assignments are not stored yet.</p>}
@@ -392,8 +402,8 @@ export default function RouteIntelligence() {
         </>}
       </aside>
       {error && <div className="ri-error" role="alert"><AlertTriangle size={16}/>{error}<button onClick={() => setError('')} aria-label="Dismiss error"><X size={14}/></button></div>}
-      <div className="ri-attribution">© OpenStreetMap contributors · MapTiler · City roads cached from OSM</div>
+      <div className="ri-attribution">© OpenStreetMap contributors</div>
     </div>
-    <div className="ri-footer"><span><Check size={15}/> Road routing is computed on the server for supported Bengaluru streets</span><span>India corridor and cold-chain state are labeled demonstrations</span></div>
+    <div className="ri-footer"><span><Check size={15}/> Fleet corridors and shipment conditions in one map</span><span>Routes and cold-chain states are labeled demonstrations</span></div>
   </div>;
 }
