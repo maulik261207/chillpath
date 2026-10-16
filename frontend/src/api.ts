@@ -1,6 +1,7 @@
 export const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000';
 export const organizationId = import.meta.env.VITE_ORGANIZATION_ID as string | undefined;
 export const connectedMode = Boolean(apiBase && organizationId);
+export const liveTelemetryApiKey = (import.meta.env.VITE_LIVE_TELEMETRY_API_KEY ?? import.meta.env.VITE_CHILLPATH_API_KEY) as string | undefined;
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBase}/v1${path}`, {
@@ -60,4 +61,28 @@ export function autocompleteAddress(text: string) {
 
 export function mapTileUrl(z: number, x: number, y: number) {
   return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+}
+
+export type LiveTelemetry = {
+  temperature_c: number;
+  temperature_f?: number;
+  humidity_pct?: number;
+  observed_at?: string;
+  received_at?: string;
+  sensor_id?: string;
+};
+
+export async function getLiveTelemetry() {
+  if (!liveTelemetryApiKey) return null;
+  const response = await fetch(`${apiBase}/v1/telemetry/live`, { headers: { 'X-API-Key': liveTelemetryApiKey } });
+  if (!response.ok) throw new Error(`Live telemetry request failed (${response.status})`);
+  return response.json() as Promise<{ online: boolean; data: LiveTelemetry | null }>;
+}
+
+export async function getLiveTelemetryHistory(limit = 36) {
+  if (!liveTelemetryApiKey) return [];
+  const response = await fetch(`${apiBase}/v1/telemetry/live/history?limit=${limit}`, { headers: { 'X-API-Key': liveTelemetryApiKey } });
+  if (!response.ok) throw new Error(`Telemetry history request failed (${response.status})`);
+  const payload = await response.json() as { points?: LiveTelemetry[] };
+  return payload.points ?? [];
 }

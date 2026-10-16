@@ -4,18 +4,15 @@ import { BrowserRouter, Link, NavLink, Route, Routes, useLocation, useNavigate, 
 import { Activity, AlertTriangle, ArrowRight, ArrowUpRight, Box, Check, CircleHelp, Clock3, Compass, Cpu, Database, Gauge, LayoutDashboard, Menu, Navigation, Package, Pause, Play, Radio, RotateCcw, Route as RouteIcon, Search, ShieldCheck, Snowflake, Thermometer, Truck, Wifi, WifiOff } from './uiMarks';
 import './style.css';
 import ConnectedShipments from './ConnectedShipments';
-import { connectedMode } from './api';
+import { connectedMode, getLiveTelemetry, getLiveTelemetryHistory, type LiveTelemetry } from './api';
 import type { Scenario } from './simulation/domain';
-import { seedShipments, scenarioTimeLabel, statusLabel, useApp } from './store/demoStore';
-import { useLiveStore } from './store/liveStore';
+import { seedShipments, statusLabel, useApp } from './store/demoStore';
 import ShipmentDetailContent from './ShipmentDetailContent';
 import ConnectedRecovery from './ConnectedRecovery';
 import TelemetryScene from './TelemetryChart';
 import RouteMap from './RouteMap';
 import EnginesDashboard from './EnginesDashboard';
-import LiveDashboard from './LiveDashboard';
 import './redesign.css';
-import './live-dashboard.css';
 import { AccountPage, BillingPage } from './AccountPages';
 import LegalPage from './LegalPages';
 
@@ -29,135 +26,13 @@ class VisualBoundary extends React.Component<{children:React.ReactNode;fallback:
  render(){return this.state.failed?this.props.fallback:this.props.children;}
 }
 
-function Twin({compact=false}:{compact?:boolean}){const scenario=useApp(s=>s.scenario);const demoTemp=useApp(s=>s.temperatureC);const evidence=useApp(s=>s.evidenceState);const offline=useApp(s=>s.offline);const liveResponse=useLiveStore(s=>s.response);const liveData=liveResponse?.data;const temperature=liveData?liveData.temperature_c:demoTemp;const isLiveOnline=liveResponse?.online??false;const lag=liveResponse?.seconds_since_last_packet;return <div className={`twin ${compact?'twin-compact':''}`}><VisualBoundary fallback={<div className="twin-fallback">Container view unavailable · shipment readings remain available</div>}><React.Suspense fallback={<div className="twin-loading">Loading interactive 3D container…</div>}><DigitalTwinScene scenario={evidence==='valid_excursion'?'refrigeration_failure':evidence==='suspected_sensor_fault'?'sensor_fault':scenario} temperatureC={temperature} compact={compact} onReset={()=>useApp.getState().setScenario('normal')}/></React.Suspense></VisualBoundary><div className="twin-hud"><span><i className={evidence==='valid_excursion'?'dot-warn':''}/>{isLiveOnline?'LIVE SENSOR':evidence==='valid_excursion'?'THERMAL ALERT':evidence==='suspected_sensor_fault'?'SENSOR REVIEW':offline?'OFFLINE · BUFFERING':'DIGITAL TWIN'}</span><b>{temperature.toFixed(1)}°<small>C</small></b><em>{isLiveOnline?`ESP32-S3 · ${lag?.toFixed(1)}s ago`:`Sensor T-04 · ${offline?'Measurement time retained':'updated '+scenarioTimeLabel(useApp.getState().elapsedSeconds)+' UTC'}`}</em></div>{!compact&&<div className="twin-controls"><span>{isLiveOnline?'LIVE SENSOR VIEW':'CONTAINER VIEW'}</span><button onClick={()=>useApp.getState().setScenario('normal')} aria-label="Reset view"><RotateCcw size={14}/></button></div>}</div>}
-function TemperatureChart({large=false}:{large?:boolean}){
-  const scenario=useApp(s=>s.scenario);
-  const demoReadings=useApp(s=>s.readings);
-  const liveHistory=useLiveStore(s=>s.history);
-  const liveResponse=useLiveStore(s=>s.response);
-  const isLive=liveResponse?.online??false;
-
-  const liveReadings = (isLive && liveHistory.length > 0)
-    ? liveHistory.map((h, idx) => ({
-        id: `live-${idx}`,
-        observedAt: h.observed_at || h.received_at,
-        temperatureC: h.temperature_c,
-        humidityPct: h.humidity_pct ?? 55,
-        credible: !h.alarm_active,
-        sequence: idx,
-      }))
-    : demoReadings;
-
-  const min=2,max=8;
-  return <VisualBoundary fallback={<div className="chart-loading">Telemetry chart unavailable · readings remain accessible</div>}>
-    <TelemetryScene scenario={scenario} readings={liveReadings} minimumC={min} maximumC={max} large={large}/>
-  </VisualBoundary>;
-}
+function useLiveTelemetry(){const [live,setLive]=useState<LiveTelemetry|null>(null);const [history,setHistory]=useState<LiveTelemetry[]>([]);const [online,setOnline]=useState(false);const [error,setError]=useState('');React.useEffect(()=>{let active=true;const refresh=async()=>{try{const [current,points]=await Promise.all([getLiveTelemetry(),getLiveTelemetryHistory()]);if(!active)return;setLive(current?.data??null);setOnline(Boolean(current?.online));setHistory(points)}catch(cause){if(active)setError(cause instanceof Error?cause.message:'Live sensor unavailable')}};void refresh();const timer=window.setInterval(refresh,10000);return()=>{active=false;window.clearInterval(timer)}},[]);return {live,history,online,error}}
+function Twin({compact=false,temperatureOverride}:{compact?:boolean;temperatureOverride?:number}){const scenario=useApp(s=>s.scenario);const storeTemperature=useApp(s=>s.temperatureC);const temperature=temperatureOverride ?? storeTemperature;const evidence=useApp(s=>s.evidenceState);const offline=useApp(s=>s.offline);return <div className={`twin ${compact?'twin-compact':''}`}><VisualBoundary fallback={<div className="twin-fallback">Container view unavailable · shipment readings remain available</div>}><React.Suspense fallback={<div className="twin-loading">Loading interactive 3D container…</div>}><DigitalTwinScene scenario={evidence==='valid_excursion'?'refrigeration_failure':evidence==='suspected_sensor_fault'?'sensor_fault':scenario} temperatureC={temperature} compact={compact} onReset={()=>useApp.getState().setScenario('normal')}/></React.Suspense></VisualBoundary><div className="twin-hud"><span><i className={evidence==='valid_excursion'?'dot-warn':''}/>{evidence==='valid_excursion'?'THERMAL ALERT':evidence==='suspected_sensor_fault'?'SENSOR REVIEW':offline?'OFFLINE · BUFFERING':temperatureOverride !== undefined?'LIVE SENSOR':'DEMO DIGITAL TWIN'}</span><b>{temperature.toFixed(1)}°<small>C</small></b><em>{temperatureOverride !== undefined ? 'Live temperature' : 'Sensor T-04 · '+(offline?'Measurement time retained':'demo reading')}</em></div>{!compact&&<div className="twin-controls"><span>CONTAINER VIEW</span><button onClick={()=>useApp.getState().setScenario('normal')} aria-label="Reset view"><RotateCcw size={14}/></button></div>}</div>}
+function TemperatureChart({large=false,liveReadings=[]}:{large?:boolean;liveReadings?:LiveTelemetry[]}){const scenario=useApp(s=>s.scenario);const readings=useApp(s=>s.readings);const mapped=liveReadings.map((item,index)=>({eventId:`live-${index}`,observedAt:new Date(item.observed_at??item.received_at??Date.now()).getTime(),temperatureC:item.temperature_c,humidityPct:item.humidity_pct??60,credible:true}));const min=2,max=8;return <VisualBoundary fallback={<div className="chart-loading">Telemetry chart unavailable · readings remain accessible</div>}><TelemetryScene scenario={mapped.length? 'normal':scenario} readings={mapped.length?mapped:readings} minimumC={min} maximumC={max} large={large}/></VisualBoundary>}
 function IconBrand(){return <Link to="/" className="brand"><span className="brand-mark"><Snowflake size={20}/></span><span className="brand-text">Chill<span className="brand-light">Path</span></span></Link>}
-function Shell({children}:{children:React.ReactNode}){const [open,setOpen]=useState(false); const offline=useApp(s=>s.offline); const identity=(()=>{try{return JSON.parse(sessionStorage.getItem("chillpath_demo_identity")||"null") as {email:string;organizationName?:string}|null}catch{return null}})(); const orgName=identity?.organizationName||"Northstar Logistics"; const profileName=identity?.email||"Alex Morgan"; return <div className="app-shell"><aside className={`sidebar ${open?'sidebar-open':''}`}><IconBrand/><div className="org"><div className="org-avatar">N</div><div><b>{orgName}</b><span>{identity?"Development account":"Operations team"}</span></div></div><div className="nav-label">WORKSPACE</div><nav>{[[LayoutDashboard,'Overview','/dashboard'],[Radio,'Live Sensor','/live-sensor'],[Package,'Shipments','/shipments'],[Activity,'Recovery plans','/recovery'],[RouteIcon,'Route intelligence','/route-intelligence'],[Cpu,'Engines','/engines'],[Navigation,'History','/traceability'],[Compass,'Test scenarios','/simulator']].map(([I,n,p]:any)=><NavLink key={n} to={p} className={({isActive})=>`nav-item ${isActive?'active':''}`} onClick={()=>setOpen(false)}><I size={17}/>{n}{p==='/recovery'&&<span className="nav-count">2</span>}</NavLink>)}</nav><div className="side-bottom"><div className={`connection ${offline?'offline':''}`}><span className="pulse"/>{offline?'Offline · buffering':'Demo environment'}<span className="demo-pill">DEMO</span></div><div className="profile"><div className="profile-avatar">{identity?"DU":"AM"}</div><div><b>{profileName}</b><span>{identity?"Development account":"Cold-chain operator"}</span></div></div></div></aside><div className="app-main"><header className="topbar"><button className="icon-button mobile-menu" onClick={()=>setOpen(!open)} aria-label="Toggle menu"><Menu size={19}/></button><div className="crumb"><span>{orgName}</span><span className="slash">/</span><b>Operations</b></div><div className="top-actions"><div className="live-status"><i/>System healthy</div><div className="top-divider"/><Link className="help-button" to="/terms"><CircleHelp size={17}/><span>Usage guide</span></Link><div className="profile-avatar small">{identity?"DU":"AM"}</div></div></header><main>{children}</main></div></div>}
-function Heading({eyebrow,title,desc,right}:{eyebrow:string;title:string;desc:string;right?:React.ReactNode}){
-  return <div className="page-heading"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{desc}</p></div>{right}</div>;
-}
-
-function Dashboard(){
-  const nav=useNavigate();
-  const s=useApp(x=>x.scenario);
-  const startLive=useLiveStore(x=>x.startPolling);
-  const stopLive=useLiveStore(x=>x.stopPolling);
-  const liveResponse=useLiveStore(x=>x.response);
-  const liveData=liveResponse?.data;
-  const isLive=liveResponse?.online??false;
-
-  React.useEffect(()=>{
-    startLive();
-    return()=>stopLive();
-  },[startLive,stopLive]);
-
-  const liveTemp=liveData?liveData.temperature_c.toFixed(1)+'°C':null;
-  const liveHum=liveData?.humidity_pct!=null?liveData.humidity_pct.toFixed(1)+'%':null;
-  const liveDevice=liveData?.device_id??null;
-
-  return <Shell><div className="page-wrap">
-    <Heading
-      eyebrow={isLive?'LIVE SENSOR CONNECTED · REAL-TIME OPERATIONS':'OPERATIONS OVERVIEW'}
-      title={isLive?'Live monitoring':'Good afternoon'}
-      desc={isLive?`Receiving live data from ${liveDevice??'ESP32-S3'} sensor bridge.`:'Here\'s the current picture across your cold-chain fleet.'}
-      right={<button className="button button-primary" onClick={()=>{useApp.getState().startGuidedDemo();nav('/simulator')}}><Play size={15} fill="currentColor"/>Start guided demo</button>}
-    />
-    <div className="metric-grid">
-      <Metric icon={<Thermometer/>} label={isLive?'Live temperature':'Active shipments'} value={isLive&&liveTemp?liveTemp:String(seedShipments.length)} foot={isLive?'ESP32-S3 sensor':'Seeded demo shipments'} tone={isLive&&liveData&&liveData.temperature_c>35?'orange':'green'}/>
-      <Metric icon={<ShieldCheck/>} label={isLive?'Humidity':'Temperature OK'} value={isLive?(liveHum??'--%'):String(seedShipments.filter(x=>x.status==='In transit').length)} foot={isLive?'DHT sensor reading':'Inside the safe demo range'} tone="green"/>
-      <Metric icon={<AlertTriangle/>} label={isLive?'Alarm status':'Needs attention'} value={isLive?(liveData?.alarm_active?'Active':'Normal'):String(seedShipments.filter(x=>x.status!=='In transit').length+(s==='normal'?0:1))} foot={isLive?(liveData?.alarm_active?'Temperature alarm triggered':'All readings normal'):'Temperature or sensor review'} tone={isLive&&liveData?.alarm_active?'orange':'green'}/>
-      <Metric icon={<Radio/>} label={isLive?'Connection':'Pending actions'} value={isLive?'Online':s==='normal'?'01':'02'} foot={isLive?`${liveResponse?.seconds_since_last_packet?.toFixed(1)}s latency`:'Operator approval required'} tone={isLive?'green':'purple'}/>
-    </div>
-    <Link to="/route-intelligence" className="dashboard-route-entry">
-      <span className="dashboard-route-icon"><RouteIcon size={20}/></span>
-      <span className="dashboard-route-copy"><strong>Route planner</strong><small>Explore the India fleet, plan Bengaluru road routes, and review shipment conditions.</small></span>
-      <span className="dashboard-route-action">Open route planner <ArrowRight size={16}/></span>
-    </Link>
-    <div className="dashboard-grid">
-      <section className="panel twin-panel">
-        <div className="panel-head">
-          <div>
-            <div className="panel-title">{isLive?'Sensor condition':'Shipment condition'}</div>
-            <div className="panel-sub">{isLive?`${liveDevice??'ESP32-S3'} · Live bridge`:'CH-2048 · Basel → Copenhagen'}</div>
-          </div>
-          <button className="text-link" onClick={()=>nav('/live-sensor')}>Open live sensor <ArrowRight size={14}/></button>
-        </div>
-        <Twin/>
-        <div className="twin-foot">
-          <span><i className="legend-dot cyan"/>Safe range</span>
-          <span><i className="legend-dot orange"/>Excursion</span>
-          <span><i className="legend-dot purple"/>Sensor review</span>
-        </div>
-      </section>
-      <section className="panel chart-panel">
-        <div className="panel-head">
-          <div>
-            <div className="panel-title">Temperature history</div>
-            <div className="panel-sub">{isLive?'Live sensor readings':'Sensor T-04 · Last 54 minutes'}</div>
-          </div>
-          <span className="time-range">{isLive?'Live stream':'Last 54 minutes'}</span>
-        </div>
-        <div className="chart-key"><i/>Temperature <span>Safe range 2–8°C</span></div>
-        <TemperatureChart/>
-      </section>
-    </div>
-    <div className="lower-grid">
-      <section className="panel shipment-panel">
-        <div className="panel-head">
-          <div>
-            <div className="panel-title">Shipments requiring attention</div>
-            <div className="panel-sub">Prioritized by operational urgency</div>
-          </div>
-          <button className="text-link" onClick={()=>nav('/shipments')}>View all <ArrowRight size={14}/></button>
-        </div>
-        <div className="shipment-mini">
-          <div className="ship-icon warn"><Thermometer size={16}/></div>
-          <div className="ship-main"><b>CH-2039 <span className="badge badge-warn">OUT OF RANGE</span></b><span>Cell therapy · Boston → New York</span></div>
-          <div className="ship-reading critical">7.8°</div>
-          <button className="arrow-btn" onClick={()=>nav('/recovery')}><ArrowRight size={16}/></button>
-        </div>
-        <div className="shipment-mini">
-          <div className="ship-icon purple"><Radio size={16}/></div>
-          <div className="ship-main"><b>CH-2014 <span className="badge badge-purple">MISSING DATA</span></b><span>Clinical samples · Oxford → London</span></div>
-          <div className="ship-reading">3.9°</div>
-          <button className="arrow-btn" onClick={()=>nav('/traceability')}><ArrowRight size={16}/></button>
-        </div>
-      </section>
-      <section className="panel event-panel">
-        <div className="panel-head">
-          <div>
-            <div className="panel-title">Recent activity</div>
-            <div className="panel-sub">Latest shipment updates</div>
-          </div>
-          <button className="text-link" onClick={()=>nav('/traceability')}>View history <ArrowRight size={14}/></button>
-        </div>
-        <EventList limit={3}/>
-      </section>
-    </div>
-  </div></Shell>;
-}
+function Shell({children}:{children:React.ReactNode}){const [open,setOpen]=useState(false); const offline=useApp(s=>s.offline); const identity=(()=>{try{return JSON.parse(sessionStorage.getItem("chillpath_demo_identity")||"null") as {email:string;organizationName?:string}|null}catch{return null}})(); const orgName=identity?.organizationName||"Northstar Logistics"; const profileName=identity?.email||"Alex Morgan"; return <div className="app-shell"><aside className={`sidebar ${open?'sidebar-open':''}`}><IconBrand/><div className="org"><div className="org-avatar">N</div><div><b>{orgName}</b><span>{identity?"Development account":"Operations team"}</span></div></div><div className="nav-label">WORKSPACE</div><nav>{[[LayoutDashboard,'Overview','/dashboard'],[Package,'Shipments','/shipments'],[Activity,'Recovery plans','/recovery'],[RouteIcon,'Route intelligence','/route-intelligence'],[Cpu,'Engines','/engines'],[Navigation,'History','/traceability'],[Compass,'Test scenarios','/simulator']].map(([I,n,p]:any)=><NavLink key={n} to={p} className={({isActive})=>`nav-item ${isActive?'active':''}`} onClick={()=>setOpen(false)}><I size={17}/>{n}{p==='/recovery'&&<span className="nav-count">2</span>}</NavLink>)}</nav><div className="side-bottom"><div className={`connection ${offline?'offline':''}`}><span className="pulse"/>{offline?'Offline · buffering':'Demo environment'}<span className="demo-pill">DEMO</span></div><div className="profile"><div className="profile-avatar">{identity?"DU":"AM"}</div><div><b>{profileName}</b><span>{identity?"Development account":"Cold-chain operator"}</span></div></div></div></aside><div className="app-main"><header className="topbar"><button className="icon-button mobile-menu" onClick={()=>setOpen(!open)} aria-label="Toggle menu"><Menu size={19}/></button><div className="crumb"><span>{orgName}</span><span className="slash">/</span><b>Operations</b></div><div className="top-actions"><div className="live-status"><i/>System healthy</div><div className="top-divider"/><Link className="help-button" to="/terms"><CircleHelp size={17}/><span>Usage guide</span></Link><div className="profile-avatar small">{identity?"DU":"AM"}</div></div></header><main>{children}</main></div></div>}
+function Heading({eyebrow,title,desc,right}:{eyebrow:string;title:string;desc:string;right?:React.ReactNode}){return <div className="page-heading"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{desc}</p></div>{right}</div>}
+function Dashboard(){const nav=useNavigate();const s=useApp(x=>x.scenario);const telemetry=useLiveTelemetry();const liveReadings=telemetry.history;const liveTemperature=telemetry.live?.temperature_c;return <Shell><div className="page-wrap"><Heading eyebrow="THURSDAY, OCTOBER 15, 2026 · LIVE OPERATIONS" title="Good afternoon" desc="Here’s the current picture across your cold-chain fleet." right={<button className="button button-primary" onClick={()=>{useApp.getState().startGuidedDemo();nav('/simulator')}}><Play size={15} fill="currentColor"/>Start guided demo</button>}/><div className="metric-grid"><Metric icon={<Truck/>} label="Active shipments" value={String(seedShipments.length)} foot="Seeded demo shipments"/><Metric icon={<ShieldCheck/>} label="Temperature OK" value={String(seedShipments.filter(x=>x.status==='In transit').length)} foot="Inside the safe demo range" tone="green"/><Metric icon={<AlertTriangle/>} label="Needs attention" value={String(seedShipments.filter(x=>x.status!=='In transit').length+(s==='normal'?0:1))} foot="Temperature or sensor review" tone="orange"/><Metric icon={<Clock3/>} label="Pending actions" value={s==='normal'?'01':'02'} foot="Operator approval required" tone="purple"/></div><Link to="/route-intelligence" className="dashboard-route-entry"><span className="dashboard-route-icon"><RouteIcon size={20}/></span><span className="dashboard-route-copy"><strong>Route planner</strong><small>Explore the India fleet, plan Bengaluru road routes, and review shipment conditions.</small></span><span className="dashboard-route-action">Open route planner <ArrowRight size={16}/></span></Link><div className="dashboard-grid"><section className="panel twin-panel"><div className="panel-head"><div><div className="panel-title">Shipment condition</div><div className="panel-sub">CH-2048 · Basel → Copenhagen</div></div><button className="text-link" onClick={()=>nav('/shipments')}>Inspect shipment <ArrowRight size={14}/></button></div><Twin temperatureOverride={liveTemperature}/><div className="twin-foot"><span><i className="legend-dot cyan"/>Safe range</span><span><i className="legend-dot orange"/>Excursion</span><span><i className="legend-dot purple"/>Sensor needs review</span></div></section><section className="panel chart-panel"><div className="panel-head"><div><div className="panel-title">Temperature history</div><div className="panel-sub">{telemetry.online ? 'Live sensor readings · last 36 samples' : 'Demo readings · waiting for live sensor data'}</div></div><span className={`time-range ${telemetry.online?'live-reading':''}`}>{telemetry.online ? 'LIVE' : 'DEMO'}</span></div><div className="chart-key"><i/>Temperature <span>Safe range 2–8°C</span></div><TemperatureChart liveReadings={liveReadings}/>{telemetry.error && <p className="telemetry-note" role="status">{telemetry.error} Showing demo readings until the sensor connects.</p>}</section></div><div className="lower-grid"><section className="panel shipment-panel"><div className="panel-head"><div><div className="panel-title">Shipments requiring attention</div><div className="panel-sub">Prioritized by operational urgency</div></div><button className="text-link" onClick={()=>nav('/shipments')}>View all <ArrowRight size={14}/></button></div><div className="shipment-mini"><div className="ship-icon warn"><Thermometer size={16}/></div><div className="ship-main"><b>CH-2039 <span className="badge badge-warn">OUT OF RANGE</span></b><span>Cell therapy · Boston → New York</span></div><div className="ship-reading critical">7.8°</div><button className="arrow-btn" onClick={()=>nav('/recovery')}><ArrowRight size={16}/></button></div><div className="shipment-mini"><div className="ship-icon purple"><Radio size={16}/></div><div className="ship-main"><b>CH-2014 <span className="badge badge-purple">MISSING DATA</span></b><span>Clinical samples · Oxford → London</span></div><div className="ship-reading">3.9°</div><button className="arrow-btn" onClick={()=>nav('/traceability')}><ArrowRight size={16}/></button></div></section><section className="panel event-panel"><div className="panel-head"><div><div className="panel-title">Recent activity</div><div className="panel-sub">Latest shipment updates</div></div><button className="text-link" onClick={()=>nav('/traceability')}>View history <ArrowRight size={14}/></button></div><EventList limit={3}/></section></div></div></Shell>}
 function Metric({icon,label,value,foot,tone='blue'}:{icon:React.ReactNode;label:string;value:string;foot:string;tone?:string}){return <div className="metric-card"><div className={`metric-icon ${tone}`}>{icon}</div><div className="metric-label">{label}</div><div className="metric-value">{value}</div><div className="metric-foot">{foot}</div><div className="metric-trend"><ArrowUpRight size={13}/></div></div>}
 function EventList({limit}:{limit?:number}){const events=useApp(s=>s.events);return <div className="event-list">{events.slice(0,limit??8).map(e=><div className="event-row" key={e.id}><span className={`event-dot ${e.kind}`}/><div className="event-copy"><b>{e.title}</b><span>{e.detail}</span></div><time>{e.time}</time></div>)}</div>}
 function Shipments(){
@@ -218,11 +93,11 @@ function Traceability(){
  const exportEvents=()=>{const blob=new Blob([JSON.stringify(events,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download='chillpath-demo-audit.json';anchor.click();URL.revokeObjectURL(url)};
  return <Shell><div className="page-wrap"><Heading eyebrow="APPEND-ONLY DEMO EVENT HISTORY" title="Traceability" desc="A timestamped chain of custody for simulated conditions, route changes and operator decisions." right={<select className="select-button" aria-label="Filter traceability events" value={filter} onChange={event=>setFilter(event.target.value)}><option>All events</option><option>Telemetry</option><option>Conditions</option><option>Operations</option></select>}/><div className="trace-summary"><div><span>SHIPMENT</span><b>CH-2048</b></div><div><span>ROUTE</span><b>Basel, CH <ArrowRight size={13}/> Copenhagen, DK</b></div><div><span>CONNECTION</span><b>{offline?`${useApp.getState().bufferedCount} buffered`:'Demo stream'}</b></div><div><span>RECORDS</span><b>{events.length} events</b></div></div><section className="panel trace-panel"><div className="panel-head"><div><div className="panel-title">Shipment event history</div><div className="panel-sub">Recent first · measurement time retained for buffered telemetry</div></div><button className="select-button" onClick={exportEvents}><Database size={14}/>Export audit log</button></div><div className="timeline"><div className="timeline-date">DEMO SESSION · SYNTHETIC EVENTS</div>{filtered.map(event=>{const title=event.title.toLowerCase();const category=title.includes('telemetry')||title.includes('sensor')||title.includes('temperature')?'TELEMETRY':event.kind==='warn'?'CONDITION':'OPERATIONS';return <div className="timeline-item" key={event.id}><div className={`timeline-marker ${event.kind}`}><i/></div><div className="timeline-body"><b>{event.title}</b><p>{event.detail}</p><small>{event.time} UTC · Event ID {event.id}</small></div><span className="timeline-category">{category}</span></div>})}{filtered.length===0&&<div className="empty-state">No events in this category yet.</div>}</div></section></div></Shell>
 }
-function Landing(){const nav=useNavigate();return <div className="landing"><header className="landing-nav"><IconBrand/><div className="landing-nav-actions"><Link className="button button-outline landing-signin-btn" to="/login">Sign in</Link><button className="button button-primary" onClick={()=>nav('/dashboard')}>Open dashboard <ArrowRight size={15}/></button></div></header><RouteMap hero/><section className="manifesto" id="platform"><h2>Know where it is.<br/>Know <span>what to do next.</span></h2><p>When plans change, teams can see the route, check shipment conditions and choose a clear next step.</p><div className="manifesto-cards"><article><span>01 / TRACK</span><h3>Follow every shipment.</h3><p>See the route, temperature and sensor status in one place.</p></article><article><span>02 / CHECK</span><h3>Spot real problems.</h3><p>Tell the difference between a true temperature change, a sensor issue and missing data.</p></article><article><span>03 / RESPOND</span><h3>Choose the next step.</h3><p>Review clear recovery options while the operator stays in control.</p></article></div></section><section className="landing-cta" id="technology"><div><h2>See the issue.<br/><span>Choose the next move.</span></h2></div><div className="hero-actions"><button className="button button-outline" onClick={()=>nav('/engines')}>See how it works <ArrowRight size={15}/></button><button className="button button-primary" onClick={()=>nav('/simulator')}>Try a test scenario <ArrowRight size={15}/></button></div></section><footer className="landing-footer"><div className="footer-side footer-left"><IconBrand/><Link to="/terms" className="footer-policy-link">Terms of Service</Link></div><div className="footer-center"><span>© 2026 ChillPath · Shipment decisions with human oversight</span></div><div className="footer-side footer-right"><Link to="/privacy" className="footer-policy-link">Privacy Policy</Link></div></footer></div>}
+function Landing(){const nav=useNavigate();return <div className="landing"><header className="landing-nav"><IconBrand/><div className="landing-nav-actions"><Link className="button button-outline landing-signin-btn" to="/login">Sign in</Link><button className="button button-primary" onClick={()=>nav('/dashboard')}>Open dashboard <ArrowRight size={15}/></button></div></header><RouteMap hero/><section className="manifesto" id="platform"><h2>Know where it is.<br/>Know <span>what to do next.</span></h2><p>When plans change, teams can see the route, check shipment conditions and choose a clear next step.</p><div className="manifesto-cards"><article><span>01 / TRACK</span><h3>Follow every shipment.</h3><p>See the route, temperature and sensor status in one place.</p></article><article><span>02 / CHECK</span><h3>Spot real problems.</h3><p>Tell the difference between a true temperature change, a sensor issue and missing data.</p></article><article><span>03 / RESPOND</span><h3>Choose the next step.</h3><p>Review clear recovery options while the operator stays in control.</p></article></div></section><section className="landing-cta" id="technology"><div><h2>See the issue.<br/><span>Choose the next move.</span></h2></div><div className="hero-actions"><button className="button button-outline" onClick={()=>nav('/engines')}>See how it works <Cpu size={15}/></button><button className="button button-primary" onClick={()=>nav('/simulator')}>Try a test scenario <ArrowRight size={15}/></button></div></section><footer className="landing-footer"><div className="footer-side footer-left"><IconBrand/><Link to="/terms" className="footer-policy-link">Terms of Service</Link></div><div className="footer-center"><span>© 2026 ChillPath · Shipment decisions with human oversight</span></div><div className="footer-side footer-right"><Link to="/privacy" className="footer-policy-link">Privacy Policy</Link></div></footer></div>}
 function Technology(){return <Shell><div className="page-wrap"><Heading eyebrow="HOW CHILLPATH WORKS" title="Evidence before urgency" desc="A transparent operational workflow that connects shipment records, timestamped measurements and operator decisions."/><div className="manifesto-cards technology-cards"><article><span>01 / INGEST</span><Radio/><h3>Measurements keep their context.</h3><p>Temperature readings retain their measurement time and stable event identifier, including while the demo is offline.</p></article><article><span>02 / CLASSIFY</span><Gauge/><h3>Signal quality shapes the conclusion.</h3><p>Repeated readings can support an excursion classification; isolated spikes and long gaps remain uncertain.</p></article><article><span>03 / RESPOND</span><Compass/><h3>People authorize interventions.</h3><p>Recommendations explain their assumptions. A human operator records approval or rejection.</p></article></div><section className="panel" style={{padding:24,marginTop:24}}><div className="panel-title">Prototype boundaries</div><p className="panel-sub">The default fleet is synthetic demo data. Connected shipment records use the configured API. The current API uses organization IDs for scoping and does not provide production authentication or authorization.</p><Link className="button button-primary" to="/simulator">Run the guided demo <ArrowRight size={15}/></Link></section></div></Shell>}
 function NotFound(){return <div className="not-found-page"><IconBrand/><main><p className="error-code">404</p><h1>We could not find that page.</h1><p>The address may be incorrect, or the page may have moved.</p><div><Link className="button button-primary" to="/">Return home</Link><Link className="button button-outline" to="/dashboard">Open dashboard</Link></div></main><footer><Link to="/terms">Terms</Link><Link to="/privacy">Privacy</Link></footer></div>}
-const pageTitles: Record<string,string> = {'/':'Route planning','/login':'Sign in','/signup':'Create account','/billing':'Access','/terms':'Terms of Service','/privacy':'Privacy Policy','/dashboard':'Overview','/live-sensor':'Live Sensor','/shipments':'Shipments','/recovery':'Recovery plans','/engines':'Engines','/route-intelligence':'Route intelligence','/traceability':'History','/simulator':'Test scenarios','/technology':'System architecture'};
+const pageTitles: Record<string,string> = {'/':'Route planning','/login':'Sign in','/signup':'Create account','/billing':'Access','/terms':'Terms of Service','/privacy':'Privacy Policy','/dashboard':'Overview','/shipments':'Shipments','/recovery':'Recovery plans','/engines':'Engines','/route-intelligence':'Route intelligence','/traceability':'History','/simulator':'Test scenarios','/technology':'System architecture'};
 function PageMeta(){const {pathname}=useLocation();React.useEffect(()=>{const base=pathname.startsWith('/shipments/')?'Shipment details':pageTitles[pathname]??'Page not found';document.title=`${base} | ChillPath`;window.scrollTo({top:0,left:0,behavior:'auto'});},[pathname]);return null;}
-function App(){return <BrowserRouter><PageMeta/><Routes><Route path="/" element={<Landing/>}/><Route path="/login" element={<AccountPage mode="login"/>}/><Route path="/signup" element={<AccountPage mode="register"/>}/><Route path="/billing" element={<BillingPage/>}/><Route path="/terms" element={<LegalPage type="terms"/>}/><Route path="/privacy" element={<LegalPage type="privacy"/>}/><Route path="/dashboard" element={<Dashboard/>}/><Route path="/live-sensor" element={<Shell><div className="page-wrap"><LiveDashboard/></div></Shell>}/><Route path="/shipments" element={<Shipments/>}/><Route path="/shipments/:id" element={<ShipmentDetailPage/>}/><Route path="/recovery" element={<Recovery/>}/><Route path="/engines" element={<Shell><EnginesDashboard/></Shell>}/><Route path="/route-intelligence" element={<Shell><React.Suspense fallback={<div className="empty-state">Loading India map…</div>}><RouteIntelligence/></React.Suspense></Shell>}/><Route path="/traceability" element={<Traceability/>}/><Route path="/simulator" element={<Simulator/>}/><Route path="/technology" element={<Technology/>}/><Route path="*" element={<NotFound/>}/></Routes></BrowserRouter>}
+function App(){return <BrowserRouter><PageMeta/><Routes><Route path="/" element={<Landing/>}/><Route path="/login" element={<AccountPage mode="login"/>}/><Route path="/signup" element={<AccountPage mode="register"/>}/><Route path="/billing" element={<BillingPage/>}/><Route path="/terms" element={<LegalPage type="terms"/>}/><Route path="/privacy" element={<LegalPage type="privacy"/>}/><Route path="/dashboard" element={<Dashboard/>}/><Route path="/shipments" element={<Shipments/>}/><Route path="/shipments/:id" element={<ShipmentDetailPage/>}/><Route path="/recovery" element={<Recovery/>}/><Route path="/engines" element={<Shell><EnginesDashboard/></Shell>}/><Route path="/route-intelligence" element={<Shell><React.Suspense fallback={<div className="empty-state">Loading India map…</div>}><RouteIntelligence/></React.Suspense></Shell>}/><Route path="/traceability" element={<Traceability/>}/><Route path="/simulator" element={<Simulator/>}/><Route path="/technology" element={<Technology/>}/><Route path="*" element={<NotFound/>}/></Routes></BrowserRouter>}
 
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

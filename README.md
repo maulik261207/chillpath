@@ -40,6 +40,31 @@ Run the backend suite:
 pytest
 ```
 
+### Live ESP32 temperature bridge
+
+The dashboard reads live temperature from `GET /v1/telemetry/live`. Connect the
+ESP32-S3 with a USB data cable, upload the firmware, and run the bridge in a
+second terminal from the repository root:
+
+```powershell
+python -m pip install -e .
+python pc_sensor_bridge.py
+```
+
+The bridge prints the detected COM port and each uploaded reading. If it keeps
+printing `Waiting for ESP32-S3 USB connection`, Windows has not exposed the
+board as a serial device yet. Check Device Manager for the COM number, close
+any Arduino or VS Code serial monitor holding that port, then pass it directly:
+
+```powershell
+python pc_sensor_bridge.py --port COM11
+```
+
+The API key must match `CHILLPATH_API_KEY` used by the backend. The local
+frontend uses the same value through `VITE_LIVE_TELEMETRY_API_KEY` in
+`frontend/.env.local`; restart Vite after changing it. The bridge accepts the
+firmware's `temp` field (or `temperature_c`) and converts it to the API shape.
+
 ## Connected shipment mode
 
 1. Start the API and register a development organization at `POST /v1/auth/register` using `/docs`.

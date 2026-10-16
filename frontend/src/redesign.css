@@ -260,6 +260,8 @@ button,a,input,select{max-width:100%}
 .notice-success{border-color:#77805b;background:#edf0e4;color:#3e492e}
 .notice-info{border-color:#9b765f;background:#f2e8df;color:#5f4032}
 .notice button{border:0;background:transparent;color:inherit;text-decoration:underline;padding:3px;cursor:pointer}
+.telemetry-note{margin:0 17px 12px;padding:8px 10px;border-top:1px solid #a65436;color:#7a402d;font-size:10px;line-height:1.4}
+.time-range.live-reading{color:#68704d;font-weight:700}
 .landing-nav .landing-links{align-items:center;font-size:14px;gap:28px}
 .landing-nav-actions{display:flex;align-items:center;gap:12px}
 .landing-nav-actions .button{font-family:'Libre Baskerville',Georgia,serif!important;font-size:1rem!important;padding:10px 18px!important}

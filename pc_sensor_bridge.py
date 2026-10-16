@@ -58,6 +58,14 @@ def find_esp32_port() -> str | None:
     return None
 
 
+def describe_serial_ports() -> str:
+    """Return a compact diagnostic list for connection troubleshooting."""
+    ports = list(serial.tools.list_ports.comports())
+    if not ports:
+        return "none detected"
+    return ", ".join(f"{p.device} ({p.description or 'unknown device'})" for p in ports)
+
+
 def upload_telemetry(payload: dict, api_url: str, api_key: str) -> tuple[bool, int, str]:
     """Posts telemetry dictionary to API endpoint using standard library urllib."""
     data_bytes = json.dumps(payload).encode("utf-8")
@@ -97,11 +105,16 @@ def run_bridge(port: str | None, baud: int, api_url: str, api_key: str):
     print("Press Ctrl+C at any time to stop.\n", flush=True)
 
     auto_detect = (port is None)
+    last_port_diagnostic = ""
 
     while True:
         target_port = port if not auto_detect else find_esp32_port()
         if not target_port:
-            print("[BRIDGE] Waiting for ESP32-S3 USB connection... (Please ensure USB cable is firmly connected)", flush=True)
+            diagnostic = describe_serial_ports()
+            if diagnostic != last_port_diagnostic:
+                print(f"[BRIDGE] No matching ESP32 serial port. Ports visible: {diagnostic}", flush=True)
+                last_port_diagnostic = diagnostic
+            print("[BRIDGE] Waiting for ESP32-S3 USB connection... (use a USB data cable)", flush=True)
             time.sleep(2.0)
             continue
 
