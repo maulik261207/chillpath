@@ -1,6 +1,6 @@
 from app.services.geoapify import summarize_routes
 from app.services.tomtom import summarize_tomtom_routes
-from app.api.maps import TRANSPORT_MODES, _estimated_route, _local_places
+from app.api.maps import TRANSPORT_MODES, _estimated_route, _local_places, _summarize_osrm
 
 def test_route_summary_hides_provider_credentials():
     payload = {"features": [{"properties": {"distance": 1200, "time": 300, "legs": []}, "geometry": {"type": "LineString", "coordinates": []}}]}
@@ -38,3 +38,21 @@ def test_estimated_route_changes_geometry_distance_and_duration():
     assert route["geometry"]["coordinates"] == [[73.8567, 18.5204], [72.8777, 19.076]]
     assert 130_000 < route["distance_m"] < 160_000
     assert route["duration_s"] > 0
+
+
+def test_osrm_route_preserves_road_geometry_and_adjusts_truck_duration():
+    payload = {
+        "routes": [{
+            "distance": 358372.9,
+            "duration": 15178.3,
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[75.7873, 26.9124], [76.4, 27.4], [77.7064, 28.9845]],
+            },
+        }],
+    }
+    route = _summarize_osrm(payload, "truck")["routes"][0]
+    assert route["provider"] == "openstreetmap"
+    assert route["distance_m"] == 358373
+    assert route["duration_s"] == round(15178.3 * 1.16)
+    assert len(route["geometry"]["coordinates"]) == 3

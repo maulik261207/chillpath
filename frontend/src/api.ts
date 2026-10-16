@@ -33,7 +33,7 @@ export type MapRoute = {
   duration_s: number | null;
   geometry: { type: string; coordinates: unknown };
   instructions: unknown[];
-  provider: 'geoapify' | 'tomtom' | 'estimate';
+  provider: 'geoapify' | 'tomtom' | 'openstreetmap' | 'estimate';
   traffic_delay_s?: number;
 };
 

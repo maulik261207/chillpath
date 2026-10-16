@@ -13,6 +13,7 @@ router = APIRouter(prefix="/maps", tags=["maps"])
 _ROUTE_CACHE_TTL_SECONDS = 300
 _route_cache: dict[tuple, tuple[float, dict]] = {}
 _default_route_warmup_task: asyncio.Task | None = None
+_ROAD_MODES = {"scooter", "motorcycle", "drive", "bus", "light_truck", "medium_truck", "truck", "heavy_truck", "long_truck", "truck_dangerous_goods"}
 
 # A small, deterministic gazetteer keeps the hackathon route planner useful
 # without provider credentials. Configured providers still take precedence.
@@ -114,8 +115,7 @@ def _haversine_meters(a: tuple[float, float], b: tuple[float, float]) -> float:
 
 def _estimated_route(points: list[tuple[float, float]], mode: str) -> dict:
     direct_distance = sum(_haversine_meters(a, b) for a, b in zip(points, points[1:]))
-    road_modes = {"scooter", "motorcycle", "drive", "bus", "light_truck", "medium_truck", "truck", "heavy_truck", "long_truck", "truck_dangerous_goods"}
-    distance_factor = 1.16 if mode in road_modes else 1.08
+    distance_factor = 1.16 if mode in _ROAD_MODES else 1.08
     speeds_kmh = {
         "walk": 5, "hike": 4, "bicycle": 16, "road_bike": 22, "mountain_bike": 12,
         "scooter": 35, "motorcycle": 45, "drive": 55, "bus": 42,
@@ -135,6 +135,49 @@ def _estimated_route(points: list[tuple[float, float]], mode: str) -> dict:
             "provider": "estimate",
         }]
     }
+
+
+def _summarize_osrm(payload: dict, mode: str) -> dict:
+    duration_factors = {
+        "bus": 1.12,
+        "light_truck": 1.08,
+        "medium_truck": 1.12,
+        "truck": 1.16,
+        "heavy_truck": 1.22,
+        "long_truck": 1.25,
+        "truck_dangerous_goods": 1.28,
+    }
+    routes = []
+    for route in payload.get("routes", []):
+        geometry = route.get("geometry")
+        if not geometry or len(geometry.get("coordinates", [])) < 2:
+            continue
+        routes.append({
+            "mode": mode,
+            "distance_m": round(float(route["distance"])),
+            "duration_s": round(float(route["duration"]) * duration_factors.get(mode, 1.0)),
+            "geometry": geometry,
+            "instructions": [],
+            "provider": "openstreetmap",
+        })
+    return {"routes": routes}
+
+
+async def _openstreetmap_route(points: list[tuple[float, float]], mode: str) -> dict:
+    coordinates = ";".join(f"{longitude},{latitude}" for latitude, longitude in points)
+    async with httpx.AsyncClient(
+        timeout=20,
+        headers={"User-Agent": "ChillPath/0.1 local-route-planner"},
+    ) as http:
+        response = await http.get(
+            f"https://router.project-osrm.org/route/v1/driving/{coordinates}",
+            params={"overview": "simplified", "geometries": "geojson", "steps": "false"},
+        )
+        response.raise_for_status()
+        payload = response.json()
+    if payload.get("code") != "Ok":
+        return {"routes": []}
+    return _summarize_osrm(payload, mode)
 
 
 def _route_cache_key(payload: RouteRequest) -> tuple:
@@ -230,8 +273,15 @@ async def route(payload: RouteRequest):
 async def _calculate_route(payload: RouteRequest) -> dict:
     points = [(point.latitude, point.longitude) for point in payload.waypoints]
     settings = get_settings()
-    if settings.environment.casefold() == "local":
-        return _estimated_route(points, payload.mode)
+    osrm_attempted = False
+    if settings.environment.casefold() == "local" and payload.mode in _ROAD_MODES:
+        osrm_attempted = True
+        try:
+            result = await _openstreetmap_route(points, payload.mode)
+            if result["routes"]:
+                return result
+        except (httpx.HTTPError, ValueError, TypeError, KeyError):
+            pass
     if settings.tomtom_api_key and payload.mode in {"drive", "light_truck", "medium_truck", "truck", "heavy_truck", "long_truck", "truck_dangerous_goods"}:
         try:
             raw = await TomTomClient(settings.tomtom_api_key).route(points, payload.mode, payload.alternatives)
@@ -248,6 +298,13 @@ async def _calculate_route(payload: RouteRequest) -> dict:
             if routes:
                 return {"routes": routes}
         except httpx.HTTPError:
+            pass
+    if payload.mode in _ROAD_MODES and not osrm_attempted:
+        try:
+            result = await _openstreetmap_route(points, payload.mode)
+            if result["routes"]:
+                return result
+        except (httpx.HTTPError, ValueError, TypeError, KeyError):
             pass
     return _estimated_route(points, payload.mode)
 
