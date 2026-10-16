@@ -1,6 +1,6 @@
 from app.services.geoapify import summarize_routes
 from app.services.tomtom import summarize_tomtom_routes
-from app.api.maps import TRANSPORT_MODES
+from app.api.maps import TRANSPORT_MODES, _estimated_route, _local_places
 
 def test_route_summary_hides_provider_credentials():
     payload = {"features": [{"properties": {"distance": 1200, "time": 300, "legs": []}, "geometry": {"type": "LineString", "coordinates": []}}]}
@@ -21,3 +21,19 @@ def test_tomtom_route_summary_includes_traffic_time_without_credentials():
     assert result["traffic_delay_s"] == 600
     assert result["geometry"]["coordinates"][0] == [77.5, 12.9]
     assert "key" not in result
+
+
+def test_local_city_lookup_supports_route_form_without_provider_credentials():
+    result = _local_places("Pune, India")
+    assert result["results"][0]["formatted"] == "Pune, India"
+    assert result["results"][0]["source"] == "local_gazetteer"
+
+
+def test_estimated_route_changes_geometry_distance_and_duration():
+    pune = (18.5204, 73.8567)
+    mumbai = (19.0760, 72.8777)
+    route = _estimated_route([pune, mumbai], "truck")["routes"][0]
+    assert route["provider"] == "estimate"
+    assert route["geometry"]["coordinates"] == [[73.8567, 18.5204], [72.8777, 19.076]]
+    assert 130_000 < route["distance_m"] < 160_000
+    assert route["duration_s"] > 0

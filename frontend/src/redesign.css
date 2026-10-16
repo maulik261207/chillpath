@@ -534,9 +534,9 @@ button,a,input,select{max-width:100%}
 /* Sign-in and sign-up use the same warm palette and contrast as the landing page. */
 .account-page{background:#f1eee5!important;color:#282820!important}
 .account-frame header>a:last-child{color:#7a402d!important}
-.account-frame .account-access-link{font-size:16px!important;transition:color .2s ease,transform .2s ease}
+.account-frame .account-access-link{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:9px!important;min-width:126px;padding:11px 18px!important;border:1px solid #7a402d!important;background:#faf8f1!important;color:#7a402d!important;font:600 15px 'Libre Baskerville',Georgia,serif!important;text-decoration:none!important;transition:color .2s ease,background-color .2s ease,transform .2s ease}
 .account-frame .account-access-link svg{transition:transform .2s ease}
-.account-frame .account-access-link:hover{color:#a65436!important;transform:translateY(-2px)}
+.account-frame .account-access-link:hover{background:#7a402d!important;color:#fff!important;transform:translateY(-2px)}
 .account-frame .account-access-link:hover svg{transform:translateX(4px)}
 .account-frame .account-access-link:focus-visible{outline:2px solid #7a402d;outline-offset:5px}
 .account-brand{color:#282820!important}
