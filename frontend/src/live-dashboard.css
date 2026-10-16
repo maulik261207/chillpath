@@ -6,6 +6,7 @@
 /* Page header */
 .live-page-heading {
   margin-bottom: 28px;
+  max-width: 760px;
 }
 .live-page-heading .eyebrow {
   font-family: 'Neuton', Georgia, serif;
@@ -33,7 +34,8 @@
 
 /* Status Bar */
 .live-status-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 14px 20px;
@@ -44,6 +46,8 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #282820;
+  max-width: 980px;
+  flex-wrap: wrap;
 }
 .live-online { border-color: #77805b; background: #edf0e4; color: #3e492e; }
 .live-offline { border-color: #a65436; background: #f1e2dc; color: #713b2c; }
@@ -59,7 +63,7 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
-.live-status-text { flex: 1; }
+.live-status-text { min-width: 0; overflow-wrap: anywhere; }
 .live-updated { font-weight: 400; color: #696960; font-size: 0.9rem; }
 
 /* Alarm Banner */
@@ -283,13 +287,42 @@
 
 /* Waiting Message */
 .live-waiting-message {
-  text-align: center;
-  padding: 80px 20px;
+  text-align: left;
+  padding: 48px;
+  margin-top: 18px;
+  max-width: 720px;
+  border: 1px solid #c2bbab;
+  background: #faf8f1;
 }
 .live-waiting-icon {
-  font-size: 3rem;
-  margin-bottom: 20px;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  color: #68704d;
+  border: 1px solid #aaa391;
+  background: #e5dfd1;
+  margin-bottom: 22px;
 }
+.live-signal {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #68704d;
+  border-radius: 50%;
+}
+.live-signal::before,
+.live-signal::after {
+  content: '';
+  position: absolute;
+  border: 2px solid #68704d;
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  transform: rotate(-45deg);
+}
+.live-signal::before { inset: -8px; }
+.live-signal::after { inset: -14px; opacity: .55; }
 .live-waiting-message h3 {
   font-family: 'Libre Baskerville', Georgia, serif !important;
   font-size: 1.5rem;
@@ -305,6 +338,8 @@
 }
 .live-waiting-hint {
   margin-top: 20px;
+  color: #55564e;
+  font: 1rem/1.6 'Neuton', Georgia, serif;
 }
 .live-waiting-hint code {
   background: #e5dfd1;
@@ -313,4 +348,16 @@
   font-family: 'Neuton', Georgia, serif;
   font-size: 1rem;
   color: #282820;
+}
+
+@media (max-width: 700px) {
+  .live-dashboard { width: 100%; overflow: hidden; }
+  .live-page-heading { margin-bottom: 20px; }
+  .live-page-heading h1 { font-size: clamp(34px, 11vw, 44px) !important; }
+  .live-page-heading p { font-size: 1.05rem; }
+  .live-status-bar { align-items: start; padding: 13px 14px; grid-template-columns: auto minmax(0, 1fr); }
+  .live-updated { grid-column: 2; padding-top: 3px; }
+  .live-waiting-message { padding: 28px 22px; width: 100%; }
+  .live-waiting-message p { font-size: 1rem; }
+  .live-waiting-hint code { display: block; margin-top: 8px; width: 100%; overflow-wrap: anywhere; }
 }

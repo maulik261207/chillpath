@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLiveStore } from './store/liveStore';
+import './live-dashboard.css';
 
 /** Maps temperature to the theme's earthy palette */
 function statusColor(tempC: number): string {
@@ -53,7 +54,7 @@ export default function LiveDashboard() {
           {error
             ? `Connection error: ${error}`
             : !data
-              ? (response?.message ?? 'Connecting to sensor…')
+              ? 'Waiting for sensor connection'
               : online
                 ? `LIVE · ${lag?.toFixed(1)}s latency`
                 : `OFFLINE · last packet ${lag?.toFixed(0)}s ago`}
@@ -198,12 +199,10 @@ export default function LiveDashboard() {
         </>
       ) : (
         <div className="live-waiting-message">
-          <div className="live-waiting-icon">📡</div>
+          <div className="live-waiting-icon" aria-hidden="true"><span className="live-signal" /></div>
           <h3>Waiting for sensor data</h3>
-          <p>{response?.message ?? 'Connecting to the telemetry API…'}</p>
-          <p className="live-waiting-hint">
-            Run <code>python pc_sensor_bridge.py</code> to start streaming sensor data.
-          </p>
+          <p>Connect the ESP32-S3 bridge to display live temperature and humidity readings.</p>
+          <div className="live-waiting-hint">Run <code>python pc_sensor_bridge.py</code> on the connected PC.</div>
         </div>
       )}
     </div>

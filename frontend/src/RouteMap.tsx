@@ -20,6 +20,24 @@ type ModeItem = { id: TravelMode; label: string; category: string };
 type Point = [number, number];
 const DEFAULT_ROUTE_CACHE_KEY = 'chillpath:homepage-route:bengaluru-mysuru:v1';
 const DEFAULT_ROUTE_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
+const DEFAULT_ROUTE: MapRoute = {
+  mode: 'truck',
+  distance_m: 145_000,
+  duration_s: 3 * 60 * 60 + 20 * 60,
+  geometry: {
+    type: 'LineString',
+    coordinates: [
+      [77.5946, 12.9716],
+      [77.4601, 12.9237],
+      [77.2812, 12.7203],
+      [77.2050, 12.5456],
+      [76.8951, 12.5218],
+      [76.6394, 12.2958],
+    ],
+  },
+  instructions: [],
+  provider: 'estimate',
+};
 type ActivePointer = { clientX: number; clientY: number };
 type Gesture =
   | { type: 'pan'; pointerId: number; clientX: number; clientY: number; viewX: number; viewY: number }
@@ -101,15 +119,16 @@ function modeIcon(category?: string) {
 function readCachedDefaultRoute(): MapRoute[] {
   try {
     const raw = window.localStorage.getItem(DEFAULT_ROUTE_CACHE_KEY);
-    if (!raw) return [];
+    if (!raw) return [DEFAULT_ROUTE];
     const cached = JSON.parse(raw) as { savedAt?: number; routes?: MapRoute[] };
     if (!cached.savedAt || Date.now() - cached.savedAt > DEFAULT_ROUTE_CACHE_MAX_AGE_MS || !Array.isArray(cached.routes)) {
       window.localStorage.removeItem(DEFAULT_ROUTE_CACHE_KEY);
-      return [];
+      return [DEFAULT_ROUTE];
     }
-    return cached.routes.filter(route => routeCoordinates(route).length > 1);
+    const routes = cached.routes.filter(route => routeCoordinates(route).length > 1);
+    return routes.length ? routes : [DEFAULT_ROUTE];
   } catch {
-    return [];
+    return [DEFAULT_ROUTE];
   }
 }
 
@@ -124,9 +143,7 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
   const [committedDestinationText, setCommittedDestinationText] = useState('Mysuru');
   const [locationError, setLocationError] = useState('');
   const [routes, setRoutes] = useState<MapRoute[]>(readCachedDefaultRoute);
-  const [routeStatus, setRouteStatus] = useState<'loading' | 'ready' | 'error'>(() =>
-    readCachedDefaultRoute().length ? 'ready' : 'loading',
-  );
+  const [routeStatus, setRouteStatus] = useState<'loading' | 'ready' | 'error'>('ready');
   const [routeKey, setRouteKey] = useState(0);
 
   // Start closer, then ease outward to a complete route overview when routing resolves.
@@ -231,6 +248,24 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
       }
     } catch {
       if (requestId !== routeRequestIdRef.current) return;
+      const isDefaultRoute =
+        nextOrigin.latitude === DEFAULT_ORIGIN.latitude &&
+        nextOrigin.longitude === DEFAULT_ORIGIN.longitude &&
+        nextDestination.latitude === DEFAULT_DESTINATION.latitude &&
+        nextDestination.longitude === DEFAULT_DESTINATION.longitude;
+      if (isDefaultRoute) {
+        setOrigin(DEFAULT_ORIGIN);
+        setDestination(DEFAULT_DESTINATION);
+        setCommittedOriginText(nextOriginText);
+        setCommittedDestinationText(nextDestinationText);
+        setRoutes([DEFAULT_ROUTE]);
+        setRouteStatus('ready');
+        setLocationError('');
+        const fittedViewport = fitRouteViewport(DEFAULT_ROUTE, DEFAULT_ORIGIN, DEFAULT_DESTINATION);
+        if (fitImmediately) setViewport(fittedViewport);
+        else animateViewport(fittedViewport);
+        return;
+      }
       setRouteStatus('error');
       setMode(committedModeRef.current);
       setLocationError('Could not calculate that route. Your previous route is still shown.');
@@ -283,7 +318,9 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
         // The labels are draft-only until this explicit submit action.
         setCommittedOriginText(originText.trim());
         setCommittedDestinationText(destinationText.trim());
+        if (!routes.length) setRoutes([DEFAULT_ROUTE]);
         setRouteStatus('ready');
+        setLocationError('');
       }
     } catch {
       if (requestId === routeRequestIdRef.current) {

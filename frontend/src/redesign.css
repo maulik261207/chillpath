@@ -232,6 +232,20 @@ footer .footer-links a:hover{color:#7a402d!important;text-decoration-color:curre
 .sim-wrap .static-sensor.sensor-1{z-index:5!important}
 .sim-wrap .static-sensor.sensor-1 .sensor-label{font-size:1rem!important;padding:5px 8px!important}
 
+.dashboard-twin-only .twin{height:320px!important}
+.dashboard-twin-only .container-model{width:min(44%,420px)!important}
+.dashboard-twin-only .static-sensor{top:30%!important}
+.dashboard-twin-only .sensor-1{left:18%!important}
+.dashboard-twin-only .sensor-2{left:47%!important}
+.dashboard-twin-only .sensor-3{left:72%!important}
+.dashboard-twin-only .static-sensor>span{transform:translateX(-50%);font-size:.78rem!important;padding:4px 7px!important}
+
+@media(max-width:700px){
+  .dashboard-twin-only .twin{height:270px!important}
+  .dashboard-twin-only .container-model{width:min(64%,360px)!important}
+  .dashboard-twin-only .twin-hud{top:14px!important;left:14px!important}
+}
+
 .engines-page{max-width:1180px}
 .engines-page .page-heading h1{font-family:'Libre Baskerville',Georgia,serif!important;font-size:clamp(34px,4vw,48px)!important;font-weight:700!important;color:#282820!important;letter-spacing:-.03em!important;margin:6px 0 8px!important}
 .engines-page .page-heading p{font-family:'Neuton',Georgia,serif!important;font-size:1.25rem!important;line-height:1.6!important;color:#55564e!important}
