@@ -1,7 +1,7 @@
 import { create } from 'zustand';
+import { apiBase, liveTelemetryApiKey } from '../api';
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:8000';
-const API_KEY = (import.meta.env.VITE_LIVE_API_KEY as string | undefined) ?? 'chillpath_live_secret_key';
+const API_KEY = liveTelemetryApiKey ?? 'chillpath_live_secret_key';
 
 export type LiveTelemetryData = {
   device_id: string;
@@ -33,8 +33,9 @@ export type LiveStore = {
   polling: boolean;
   /** Latest response from the API */
   response: LiveTelemetryResponse | null;
-  /** Historical data points collected during this session */
+  /** Recent readings returned by the telemetry API */
   history: LiveTelemetryData[];
+  historyLoaded: boolean;
   /** Connection error message, if any */
   error: string | null;
   /** Last successful fetch time */
@@ -48,28 +49,7 @@ export type LiveStore = {
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 async function fetchLiveTelemetry(): Promise<LiveTelemetryResponse> {
-  // First query http://localhost:8000/live directly with JSON format & API key
-  try {
-    const liveUrl = `${API_BASE}/live?format=json&api_key=${encodeURIComponent(API_KEY)}`;
-    const res = await fetch(liveUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'X-API-Key': API_KEY,
-      },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (typeof data === 'object' && data !== null && 'online' in data) {
-        return data as LiveTelemetryResponse;
-      }
-    }
-  } catch (e) {
-    // fallback to /v1/telemetry/live
-  }
-
-  // Fallback to /v1/telemetry/live
-  const url = `${API_BASE}/v1/telemetry/live?api_key=${encodeURIComponent(API_KEY)}`;
-  const res = await fetch(url, {
+  const res = await fetch(`${apiBase}/v1/telemetry/live`, {
     headers: {
       'Accept': 'application/json',
       'X-API-Key': API_KEY,
@@ -81,10 +61,25 @@ async function fetchLiveTelemetry(): Promise<LiveTelemetryResponse> {
   return res.json();
 }
 
+async function fetchLiveTelemetryHistory(): Promise<LiveTelemetryData[]> {
+  const res = await fetch(`${apiBase}/v1/telemetry/live/history?limit=60`, {
+    headers: {
+      'Accept': 'application/json',
+      'X-API-Key': API_KEY,
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  const result = await res.json() as { points: LiveTelemetryData[] };
+  return result.points;
+}
+
 export const useLiveStore = create<LiveStore>((set, get) => ({
   polling: false,
   response: null,
   history: [],
+  historyLoaded: false,
   error: null,
   lastFetchedAt: null,
 
@@ -96,13 +91,28 @@ export const useLiveStore = create<LiveStore>((set, get) => ({
       try {
         const response = await fetchLiveTelemetry();
         const state = get();
-        const newHistory = response.data
-          ? [...state.history, response.data].slice(-200)
-          : state.history;
+        let history = state.history;
+        let historyLoaded = state.historyLoaded;
+        let error: string | null = null;
+        if (!historyLoaded) {
+          try {
+            history = [...history, ...await fetchLiveTelemetryHistory()];
+            historyLoaded = true;
+          } catch (cause) {
+            error = cause instanceof Error ? cause.message : 'History unavailable';
+          }
+        }
+        if (response.data) history = [...history, response.data];
+        const uniqueReadings = new Map<string, LiveTelemetryData>();
+        for (const reading of history) {
+          const key = reading.received_at || `${reading.device_id}:${reading.observed_at}`;
+          uniqueReadings.set(key, reading);
+        }
         set({
           response,
-          history: newHistory,
-          error: null,
+          history: [...uniqueReadings.values()].slice(-200),
+          historyLoaded,
+          error,
           lastFetchedAt: new Date(),
         });
       } catch (e) {

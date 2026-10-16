@@ -322,10 +322,13 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
         setRouteStatus('ready');
         setLocationError('');
       }
-    } catch {
+    } catch (error) {
       if (requestId === routeRequestIdRef.current) {
         setRouteStatus(routes.length ? 'ready' : 'error');
-        setLocationError('Could not find one of those places. Try a city or address.');
+        const message = error instanceof Error ? error.message : '';
+        setLocationError(message.includes('GEOAPIFY_API_KEY')
+          ? 'Address search is offline. Try a supported Indian city or configure GEOAPIFY_API_KEY.'
+          : 'Could not find one of those places. Try a city or address.');
       }
     }
   }
@@ -550,6 +553,9 @@ export default function RouteMap({ hero = false }: { hero?: boolean }) {
             <b>{duration}</b>
           </div>
         </div>
+        {bestRoute?.provider === 'estimate' && (
+          <small className="map-estimate-note">Approximate straight-line-based route; road routing needs a configured provider.</small>
+        )}
       </div>
       <div className="map-frame">
         <svg

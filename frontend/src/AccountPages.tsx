@@ -28,7 +28,8 @@ export function AccountPage({ mode }: { mode: 'login' | 'register' }) {
         const slug = organization.trim().toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         if (!slug) throw new Error('Enter an organization name using letters or numbers.');
         await api<RegisterResult>('/auth/register', { method: 'POST', body: JSON.stringify({ email: identifier, password, organization_name: organization.trim(), organization_slug: `${slug}-${crypto.randomUUID().slice(0, 8)}` }) });
-        navigate('/login', { replace: true, state: { message: 'Account created. Sign in to continue.' } });
+        const requestedPath = (location.state as { from?: string } | null)?.from;
+        navigate('/login', { replace: true, state: { message: 'Account created. Sign in to continue.', from: requestedPath } });
         return;
       } else {
         if (identifier.trim().toLocaleLowerCase() === DEMO_EMAIL) {

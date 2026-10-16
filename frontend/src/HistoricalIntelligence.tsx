@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Database, ShieldCheck } from './uiMarks';
 import { getHistoricalActions, getHistoricalDatasets, getHistoricalSeries, getHistoricalSummary, getLocalHistoricalWorkspace, type HistoricalDataset, type HistoricalPoint, type HistoricalSensorSummary } from './api';
-import { readSessionIdentity } from './authSession';
+import { readSessionIdentity, signOut } from './authSession';
 
 const configuredOrganization = (import.meta.env.VITE_ORGANIZATION_ID as string | undefined) ?? '';
 
@@ -61,11 +62,30 @@ export default function HistoricalIntelligence() {
   const sensorSummary = summary.find(item => item.sensor_id === selectedSensor);
   const temperaturePoints = points.filter(point => point.sensor_id === selectedSensor);
   const humidityPoints = temperaturePoints;
-  if (!organization) return <div className="historical-empty panel"><Database size={22}/><h2>{loading ? 'Finding the local research workspace…' : 'Historical Intelligence needs an imported dataset'}</h2><p>{error || 'Import the historical dataset, then restart the backend.'}</p></div>;
+  if (!organization) return <div className="historical-empty panel">
+    <Database size={22}/>
+    <h2>{identity?.kind === 'demo' ? 'Connect a workspace to view historical data' : 'This account has no connected workspace'}</h2>
+    <p>{identity?.kind === 'demo'
+      ? 'Demo sign-in is not connected to an API organization. Create a workspace account or sign in with one to load its historical datasets.'
+      : 'Sign in again with an account linked to an API organization, or configure VITE_ORGANIZATION_ID for a local research workspace.'}</p>
+    <div className="historical-empty-actions">
+      <Link className="button button-primary" to="/signup" state={{ from: '/historical' }}>Create workspace account</Link>
+      <Link className="button button-outline" to="/login" state={{ from: '/historical' }} onClick={signOut}>
+        {identity?.kind === 'demo' ? 'Sign in with existing account' : 'Sign in again'}
+      </Link>
+    </div>
+  </div>;
   return <div className="historical-page">
     <div className="page-heading"><div><div className="eyebrow">HISTORICAL RESEARCH</div><h1>Historical Intelligence</h1><p>Explore preserved sensor evidence from {workspaceName} without mixing it with live hardware telemetry.</p></div><span className="historical-source"><i/>HISTORICAL_RESEARCH</span></div>
     {error && <div className="notice notice-info" role="alert">{error}</div>}
-    {!selectedDataset && <p className="historical-muted">{loading ? 'Loading sensor data…' : 'No dataset imported'}</p>}
+    {!selectedDataset && (loading
+      ? <p className="historical-muted">Loading sensor data…</p>
+      : <section className="historical-empty panel">
+        <Database size={22}/>
+        <h2>No historical dataset in this workspace yet</h2>
+        <p>Import the SENSOR01–SENSOR09 CSV files into this organization to view historical sensor analytics.</p>
+        <code>python scripts/import_historical_dataset.py --archive datasets --organization-slug &lt;your-organization-slug&gt;</code>
+      </section>)}
     {selectedDataset && <>
       <section className="historical-layout">
         <aside className="panel historical-sensors"><div className="panel-title">Sensors</div><p className="panel-sub">Select a sensor to inspect its readings</p>{datasets.length > 1 && <label className="historical-dataset-picker">Dataset<select value={datasetId} onChange={event => { const next = datasets.find(dataset => dataset.id === event.target.value); setDatasetId(event.target.value); setSelectedSensor(next?.sensors[0]?.sensor_id ?? ''); setSummary([]); setPoints([]); }}>{datasets.map(dataset => <option value={dataset.id} key={dataset.id}>{dataset.name}</option>)}</select></label>}{selectedDataset.sensors.map(sensor => <label className="historical-sensor-option" key={sensor.sensor_id}><input type="radio" name="historical-sensor" checked={selectedSensor === sensor.sensor_id} onChange={() => { setSelectedSensor(sensor.sensor_id); setPoints([]); }}/><span>{sensor.sensor_id}</span><small>{sensor.rows.toLocaleString()} rows</small></label>)}</aside>

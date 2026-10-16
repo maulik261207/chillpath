@@ -2,12 +2,13 @@ import { useEffect } from 'react';
 import { useLiveStore } from './store/liveStore';
 import './live-dashboard.css';
 
-/** Maps temperature to the theme's earthy palette */
+const MIN_COLD_CHAIN_TEMP_C = 2;
+const MAX_COLD_CHAIN_TEMP_C = 8;
+
+/** Maps temperatures within the configured range to green and excursions to red. */
 function statusColor(tempC: number): string {
-  if (tempC < 5) return '#68704d';   // green — safe/cold
-  if (tempC < 20) return '#68704d';  // green — comfortable
-  if (tempC < 35) return '#7a6c55';  // muted brown — warm
-  return '#a65436';                  // red/orange — alarm
+  if (tempC < MIN_COLD_CHAIN_TEMP_C || tempC > MAX_COLD_CHAIN_TEMP_C) return '#a65436';
+  return '#68704d';
 }
 
 function formatTime(iso: string): string {
@@ -34,9 +35,10 @@ export default function LiveDashboard() {
     ? Math.max(...history.map(d => d.temperature_c))
     : null;
 
-  const alarm = data
-    ? data.alarm_active || data.temperature_c > 50 || data.temperature_c < -10
+  const outOfRange = data
+    ? data.temperature_c < MIN_COLD_CHAIN_TEMP_C || data.temperature_c > MAX_COLD_CHAIN_TEMP_C
     : false;
+  const alarm = Boolean(data?.alarm_active || outOfRange);
 
   return (
     <div className="live-dashboard">
@@ -66,7 +68,7 @@ export default function LiveDashboard() {
 
       {alarm && (
         <div className="live-alarm-banner">
-          ⚠ TEMPERATURE ALARM — Sensor reading outside safe limits
+          ⚠ TEMPERATURE ALERT — Verify the sensor and shipment; reading is outside the configured 2–8°C demo range.
         </div>
       )}
 
@@ -122,7 +124,9 @@ export default function LiveDashboard() {
             <div className="live-kpi">
               <span className="live-kpi-label">Range status</span>
               <span className={`live-kpi-value ${alarm ? 'live-alarm-text' : 'live-ok-text'}`}>
-                {alarm ? 'Alarm' : 'Normal'}
+                {outOfRange
+                  ? data.temperature_c < MIN_COLD_CHAIN_TEMP_C ? 'Below 2°C range' : 'Above 8°C range'
+                  : data.alarm_active ? 'Sensor alarm' : 'Within 2–8°C'}
               </span>
             </div>
             <div className="live-kpi">
