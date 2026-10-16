@@ -32,6 +32,7 @@ _INDIA_CITIES = {
     "kochi": (9.9312, 76.2673),
     "kolkata": (22.5726, 88.3639),
     "lucknow": (26.8467, 80.9462),
+    "meerut": (28.9845, 77.7064),
     "mumbai": (19.0760, 72.8777),
     "mysore": (12.2958, 76.6394),
     "mysuru": (12.2958, 76.6394),
@@ -65,6 +66,40 @@ def _local_places(text: str, limit: int = 5) -> dict:
                 "source": "local_gazetteer",
             }
             for name, (latitude, longitude) in matches[:limit]
+        ]
+    }
+
+
+async def _openstreetmap_places(text: str, limit: int = 5) -> dict:
+    """Resolve arbitrary Indian places without exposing a provider credential."""
+    async with httpx.AsyncClient(
+        timeout=8,
+        headers={"User-Agent": "ChillPath/0.1 local-route-planner"},
+    ) as http:
+        response = await http.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={
+                "q": text,
+                "format": "jsonv2",
+                "countrycodes": "in",
+                "addressdetails": 1,
+                "limit": limit,
+            },
+        )
+        response.raise_for_status()
+        items = response.json()
+    return {
+        "results": [
+            {
+                "formatted": item.get("display_name") or text,
+                "address_line1": item.get("name") or text,
+                "address_line2": "India",
+                "lat": float(item["lat"]),
+                "lon": float(item["lon"]),
+                "source": "openstreetmap",
+            }
+            for item in items
+            if item.get("lat") is not None and item.get("lon") is not None
         ]
     }
 
@@ -162,12 +197,16 @@ async def autocomplete(text: str = Query(min_length=2, max_length=200), limit: i
     settings = get_settings()
     if local["results"]:
         return local
-    if not settings.geoapify_api_key:
-        return local
+    if settings.environment.casefold() != "local" and settings.geoapify_api_key:
+        try:
+            result = await GeoapifyClient(settings.geoapify_api_key).autocomplete(text, limit)
+            if result.get("results"):
+                return result
+        except httpx.HTTPError:
+            pass
     try:
-        result = await GeoapifyClient(settings.geoapify_api_key).autocomplete(text, limit)
-        return result if result.get("results") else local
-    except httpx.HTTPError:
+        return await _openstreetmap_places(text, limit)
+    except (httpx.HTTPError, ValueError, TypeError):
         return local
 
 @router.post("/route")

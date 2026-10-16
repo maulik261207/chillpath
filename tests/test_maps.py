@@ -27,6 +27,7 @@ def test_local_city_lookup_supports_route_form_without_provider_credentials():
     result = _local_places("Pune, India")
     assert result["results"][0]["formatted"] == "Pune, India"
     assert result["results"][0]["source"] == "local_gazetteer"
+    assert _local_places("Meerut")["results"][0]["formatted"] == "Meerut, India"
 
 
 def test_estimated_route_changes_geometry_distance_and_duration():
