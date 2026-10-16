@@ -73,9 +73,9 @@ function StaticContainer({ scenario, temperatureC }: { scenario: string; tempera
         <span className="container-status-light" />
       </div>
       <div className="cooling-unit"><span /><i /></div>
-      {[2, 3, 4].map((sensor, index) => <div className={`static-sensor sensor-${sensor}`} key={sensor}>
+      {[1, 2, 3].map((sensor, index) => <div className={`static-sensor sensor-${sensor}`} key={sensor}>
         <i />
-        <span>T-{String(sensor).padStart(2, '0')} <b>{(temperatureC + (index - 1) * .4).toFixed(1)}°</b></span>
+        <span className={`sensor-label sensor-label-${sensor}`}>T{sensor} <b>{(temperatureC + (index - 1) * .4).toFixed(1)}°</b></span>
       </div>)}
     </div>
   </div>;
@@ -90,8 +90,10 @@ function AnimatedContainer({ danger, fault, temperatureC, animate }: {
   const group = useRef<any>(null);
   useFrame(state => {
     if (group.current && animate) {
-      group.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.32) * 0.08;
-      group.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.21) * 0.018;
+      const t = state.clock.elapsedTime;
+      group.current.rotation.y = Math.sin(t * 0.32) * 0.08;
+      group.current.rotation.x = Math.sin(t * 0.21) * 0.018;
+      group.current.position.y = Math.sin(t * 0.55) * 0.035;
     }
   });
   return <group ref={group}><Container danger={danger} fault={fault} temperatureC={temperatureC} /></group>;
@@ -128,7 +130,7 @@ function Container({ danger, fault, temperatureC }: { danger: boolean; fault: bo
     {/* Sensor nodes */}
     {[-0.75, 0.05, 0.75].map((x, i) => <group key={x} position={[x, 0.48, 0.9]}>
       <mesh><sphereGeometry args={[0.07, 16, 16]} /><meshStandardMaterial color={i === 2 && fault ? '#7a6c55' : accentColor} emissive={i === 2 && fault ? '#7a6c55' : accentColor} emissiveIntensity={2} /></mesh>
-      <Html distanceFactor={8}><div className="sensor-label">T-{String(i + 2).padStart(2, '0')} <b>{(temperatureC + (i - 1) * 0.4).toFixed(1)}°</b></div></Html>
+      <Html distanceFactor={8}><div className={`sensor-label sensor-label-${i + 1}`}>T{i + 1} <b>{(temperatureC + (i - 1) * 0.4).toFixed(1)}°</b></div></Html>
     </group>)}
     {/* Base platform */}
     <mesh position={[0, -0.98, 0]}><boxGeometry args={[3.5, 0.08, 2]} /><meshStandardMaterial color={baseColor} roughness={0.7} metalness={0.15} /></mesh>

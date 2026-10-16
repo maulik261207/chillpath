@@ -43,9 +43,9 @@
 .static-sensor{position:absolute;top:34%;z-index:3;transform:translateZ(24px)}
 .static-sensor>i{display:block;width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan);margin:auto;animation:sensor-pulse 2s ease-in-out infinite}
 .static-sensor>span{display:block;margin-top:6px;font:9px 'Courier New';color:#d3edf2;background:#081923ed;border:1px solid #45636e;border-radius:4px;padding:4px 6px;white-space:nowrap;box-shadow:0 4px 10px #0005}
-.static-sensor b{color:var(--cyan)}.sensor-2{left:10%}.sensor-3{left:42%}.sensor-4{left:72%}
+.static-sensor b{color:var(--cyan)}.sensor-1{left:10%}.sensor-2{left:42%}.sensor-3{left:72%}
 .twin-static.danger .container-status-light,.twin-static.danger .static-sensor>i,.twin-static.danger .cooling-unit i{background:var(--orange);box-shadow:0 0 13px var(--orange)}
-.twin-static.danger .static-sensor b{color:var(--orange)}.twin-static.fault .sensor-4>i{background:var(--purple);box-shadow:0 0 13px var(--purple)}.twin-static.fault .sensor-4 b{color:var(--purple)}
+.twin-static.danger .static-sensor b{color:var(--orange)}.twin-static.fault .sensor-3>i{background:var(--purple);box-shadow:0 0 13px var(--purple)}.twin-static.fault .sensor-3 b{color:var(--purple)}
 .container-shadow{position:absolute;width:55%;height:18%;bottom:20%;border-radius:50%;background:#0009;filter:blur(20px);animation:shadow-breathe 5.5s ease-in-out infinite}
 @keyframes container-float{0%,100%{translate:0 2px}50%{translate:0 -6px}}
 @keyframes shadow-breathe{0%,100%{scale:1;opacity:.7}50%{scale:.9;opacity:.45}}

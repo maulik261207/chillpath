@@ -18,6 +18,7 @@ from app.api.scenarios import router as scenarios_router
 from app.api.recovery import router as recovery_router
 from app.api.devices import router as devices_router
 from app.api.maps import router as maps_router
+from app.api.maps import schedule_default_route_warmup
 from app.api.engines import router as engines_router
 from app.api.road_intelligence import router as road_intelligence_router
 from app.api.shipment_route_context import router as shipment_route_context_router
@@ -34,6 +35,7 @@ async def lifespan(_: FastAPI):
     if settings.auto_create_schema:
         async with engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)
+    schedule_default_route_warmup()
     yield
     await shutdown_workers()
     await engine.dispose()

@@ -43,8 +43,13 @@ footer .brand,
   opacity:.85;
 }
 .brand-mark{
-  width:32px;
-  height:32px;
+  display:none!important;
+  width:auto;
+  height:auto;
+  padding:0;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
 }
 
 /* 2. Text titles in the sidebar, uppermenu, and general headings in Libre Baskerville */
@@ -141,9 +146,10 @@ time,
 .panel,.metric-card,.button,.select-button,.search-box,.status-tag,.mode-pill,.badge,.engine-connection,.engine-row,.map-frame,.map-topline,.map-location,.map-controls,.landing-map select,.account-card,.account-card input,.billing-offer,.ri-stage,.ri-panel,.ri-field button,.ri-field select,.ri-address input,.ri-address-results,.ri-primary{border-radius:1px!important;background-image:none!important}
 .panel,.metric-card{background:#faf8f1;border-color:#c2bbab;color:#282820}
 .button-primary{background:#5f6748;color:#fff;border-color:#5f6748}.button-primary:hover{background:#4f563b}.button-outline,.select-button{background:#f1eee5;color:#383930;border-color:#999282}
+.button-primary{font-size:1rem;line-height:1.25}
 .text-link{color:#7a402d}.text-link:hover{color:#a65436}
 
-.landing{background:#f1eee5;color:#282820}.landing-nav{background:#f1eee5;border-color:#b9b2a2}.landing-links{color:#5b5b52}.brand{color:#282820}.brand-mark{background:transparent;border-color:#797b60;color:#5f6748;border-radius:0}.brand-light{color:#6e6d63}
+.landing{background:#f1eee5;color:#282820}.landing-nav{background:#f1eee5;border-color:#b9b2a2}.landing-links{color:#5b5b52}.brand{color:#282820}.brand-mark{background:transparent;border:0!important;color:#5f6748;border-radius:0}.brand-light{color:#6e6d63}
 .landing-map,.landing-map-hero{background:#e5dfd1!important;border-color:#aaa391}.map-copy h2,.manifesto h2,.landing-cta h2{color:#282820}.map-copy h2 span,.manifesto h2 span,.landing-cta h2 span{color:#7a402d}.map-copy>p,.manifesto>p{color:#616159}.map-mode-select>div,.map-route-summary{background:#f6f3ea;border-color:#a8a191;color:#5f6748}.map-mode-select select,.map-route-summary b{color:#282820}.map-mode-select option{background:#f6f3ea;color:#282820}.map-frame{border-color:#817c70;background:#d5d0c4}.map-topline,.map-location,.map-loading,.map-error{background:#f5f1e9ed;color:#393a33;border-color:#827c6d}.map-topline span i{background:#68704d}.map-controls button{background:#f5f1e9;color:#34352f;border-color:#8e887b}.route-candidate-path{stroke:#a65436!important}.route-best-path{stroke:#5f6748!important}.route-candidate-glow,.route-best-glow{display:none}.route-search-head{filter:none!important;fill:#a65436!important;stroke:#f1eee5!important}
 .manifesto{background:#f1eee5;border-color:#aaa391;padding-top:88px;padding-bottom:88px}
 .manifesto>p{font-size:1.25rem!important;line-height:1.65!important;color:#55564e!important;max-width:620px}
@@ -153,9 +159,10 @@ time,
 .manifesto-cards article>svg{display:none}
 .manifesto-cards h3{margin:0;color:#282820;font-size:1.65rem!important;line-height:1.25}
 .manifesto-cards p{color:#494a42!important;font-size:1.2rem!important;line-height:1.65!important;max-width:600px}
-.landing-cta{border-color:#aaa391;padding:75px 0!important}
+.landing-cta{border-color:#aaa391;padding:38px 0 48px!important;align-items:flex-start!important}
+.manifesto{padding-bottom:24px!important}
 .landing-cta h2{font-size:clamp(38px,4.5vw,56px)!important;line-height:1.1!important}
-.landing-cta .hero-actions{margin-top:0;display:flex;gap:16px}
+.landing-cta .hero-actions{margin-top:30px!important;display:flex;gap:16px}
 .landing-cta .hero-actions .button{font-family:'Libre Baskerville',Georgia,serif!important;font-size:1.1rem!important;padding:14px 24px!important}
 footer{display:flex!important;align-items:center!important;justify-content:space-between!important;padding:28px clamp(24px,6vw,90px)!important;color:#494a42!important;border-top:1px solid #aaa391!important;background:#eae5d8!important;font-size:1.1rem!important;line-height:1.5!important;flex-wrap:wrap;gap:20px}
 footer span{font-family:'Neuton',Georgia,serif!important;font-size:1.05rem!important;letter-spacing:.02em!important;color:#494a42!important}
@@ -176,6 +183,9 @@ footer .footer-links a:hover{color:#7a402d!important;text-decoration-color:curre
 .twin-hud em{font-family:'Neuton',Georgia,serif!important;font-size:12px!important;color:#716f65!important}
 .sensor-label{background:#faf8f1e6!important;border:1px solid #b9b2a2!important;border-radius:2px!important;color:#282820!important;font-family:'Neuton',Georgia,serif!important;font-size:11px!important;font-weight:600!important;padding:3px 6px!important;box-shadow:none!important}
 .sensor-label b{color:#7a402d!important;font-weight:700!important}
+.sensor-label-1{transform:translate(-68px,-30px)}
+.sensor-label-2{transform:translate(-8px,-58px)}
+.sensor-label-3{transform:translate(32px,18px)}
 .twin-controls button{background:#faf8f1!important;border:1px solid #b9b2a2!important;color:#55564e!important;border-radius:2px!important}
 .twin-controls button:hover{background:#f1eee5!important;border-color:#7a402d!important;color:#282820!important}
 .twin-foot{background:#f8f5ed!important;border-top:1px solid #c2bbab!important;color:#55564e!important;font-family:'Neuton',Georgia,serif!important;font-size:12px!important}
@@ -250,6 +260,7 @@ footer .footer-links a:hover{color:#7a402d!important;text-decoration-color:curre
 
 /* Quality pass: predictable overflow, readable states, and functional controls. */
 html,body,#root{width:100%;max-width:100%;overflow-x:hidden}
+.billing-page>main{max-width:1180px!important}.billing-page .billing-intro{max-width:none}.billing-card{border:1px solid #aaa391;background:#faf8f1;display:flex;flex-direction:column;min-height:390px;padding:28px}.billing-card.featured{border-color:#7a402d;background:#f7eee5;box-shadow:0 10px 35px #59433218}.billing-card h2{font:500 25px 'Libre Baskerville',Georgia,serif!important;color:#282820;margin:20px 0 12px}.billing-card .billing-price{font:500 34px 'Libre Baskerville',Georgia,serif;color:#282820}.billing-card .billing-price small{font:13px 'Neuton',Georgia,serif;color:#66665d;letter-spacing:0}.billing-card ul{display:grid;gap:13px;list-style:none;padding:0;margin:26px 0;flex:1}.billing-card li{display:flex;gap:9px;color:#55564d;font:16px 'Neuton',Georgia,serif;line-height:1.4}.billing-card li svg{flex:none;color:#62704b}.billing-card>a{display:flex;align-items:center;justify-content:center;gap:8px;min-height:43px;padding:10px 14px;background:#5f6748;color:white;text-decoration:none;font:16px 'Neuton',Georgia,serif}.billing-note{color:#66665d;font:14px 'Neuton',Georgia,serif}@media(max-width:920px){.billing-grid{grid-template-columns:1fr 1fr}.billing-page>main{max-width:760px!important}}@media(max-width:600px){.billing-grid{grid-template-columns:1fr}.billing-card{min-height:0}.billing-page>main{padding-top:48px}}
 .app-shell,.app-main,main,.page-wrap,.panel,.dashboard-grid,.lower-grid,.sim-grid,.sim-bottom,.recovery-layout,.landing,.landing-map,.landing-map>*{min-width:0}
 img,svg,canvas{max-width:100%}
 button,a,input,select{max-width:100%}
@@ -281,13 +292,43 @@ button,a,input,select{max-width:100%}
 .map-route-summary b{font-family:'Libre Baskerville',Georgia,serif!important;font-size:1.55rem!important;font-weight:700!important;color:#282820!important;margin-top:6px!important}
 .map-topline span{font-family:'Neuton',Georgia,serif!important;font-size:0.95rem!important;font-weight:700!important;letter-spacing:.04em!important}
 .map-topline b{font-family:'Libre Baskerville',Georgia,serif!important;font-size:1.05rem!important;font-weight:700!important}
-.landing-footer{display:grid!important;grid-template-columns:1fr auto 1fr!important;align-items:center!important;padding:28px clamp(24px,6vw,90px)!important;color:#494a42!important;border-top:1px solid #aaa391!important;background:#eae5d8!important;gap:20px}
-.landing-footer .footer-left{display:flex;align-items:center;gap:24px;justify-content:flex-start}
+.landing-footer{display:grid!important;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)!important;align-items:center!important;padding:28px clamp(24px,4vw,72px)!important;color:#494a42!important;border-top:1px solid #aaa391!important;background:#eae5d8!important;column-gap:clamp(28px,4vw,64px);row-gap:20px}
+.landing-footer .footer-left{display:flex;align-items:center;gap:clamp(28px,3vw,48px);justify-content:flex-start}
 .landing-footer .footer-center{text-align:center}
+
+/* Compact billing layout in the same warm palette as the landing page. */
+.billing-page{min-height:100svh!important;display:flex!important;flex-direction:column!important;background:#f1eee5!important;color:#282820!important}
+.billing-page>header{width:min(100%,1320px)!important;height:76px!important;flex:none!important;margin:0 auto!important;padding:16px clamp(22px,4vw,48px)!important}
+.billing-page>header>a:last-child{color:#7a402d!important;font-family:'Libre Baskerville',Georgia,serif!important;font-size:14px!important;transition:transform .2s ease,color .2s ease}
+.billing-page>header>a:last-child:hover{color:#a65436!important;transform:translateY(-2px)}
+.billing-page>header>a:last-child svg{transition:transform .2s ease}
+.billing-page>header>a:last-child:hover svg{transform:translateX(4px)}
+.billing-page>main{width:min(100%,1320px)!important;max-width:none!important;flex:1!important;margin:0 auto!important;padding:clamp(22px,4vh,38px) clamp(22px,4vw,48px) 24px!important}
+.billing-page .billing-index{color:#7a402d!important;font:700 11px 'Neuton',Georgia,serif!important;letter-spacing:.1em!important}
+.billing-page h1{margin:10px 0 5px!important;color:#282820!important;font:500 clamp(36px,4vw,52px)/1.08 'Libre Baskerville',Georgia,serif!important;letter-spacing:-.035em!important}
+.billing-page .billing-intro{margin:0!important;color:#606159!important;font:16px/1.5 'Neuton',Georgia,serif!important}
+.billing-page .billing-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:16px!important;margin-top:clamp(20px,3.5vh,32px)!important;align-items:stretch!important}
+.billing-page .billing-card,.billing-page .billing-card.featured{min-height:clamp(292px,39vh,350px)!important;padding:22px!important;border:1px solid #aaa391!important;border-radius:2px!important;background:#faf8f1!important;color:#282820!important;box-shadow:none!important;transition:transform .2s ease,border-color .2s ease,background-color .2s ease!important}
+.billing-page .billing-card:hover{transform:translateY(-3px)!important;border-color:#7a8062!important}
+.billing-page .billing-card.featured{background:#eeeee2!important;border-color:#68704d!important}
+.billing-page .billing-card h2{margin:14px 0 10px!important;color:#282820!important;font:500 clamp(20px,2vw,25px)/1.2 'Libre Baskerville',Georgia,serif!important}
+.billing-page .billing-card .billing-price{color:#5f6748!important;font:600 clamp(28px,3vw,36px)/1.15 'Libre Baskerville',Georgia,serif!important;letter-spacing:-.035em!important}
+.billing-page .billing-card .billing-price small{margin-top:5px!important;color:#68685f!important;font:14px 'Neuton',Georgia,serif!important}
+.billing-page .billing-card ul{gap:11px!important;margin:21px 0!important}
+.billing-page .billing-card li{gap:9px!important;color:#494a42!important;font:15px/1.35 'Neuton',Georgia,serif!important}
+.billing-page .billing-card li svg{color:#68704d!important}
+.billing-page .billing-card>a{min-height:42px!important;background:#5f6748!important;color:#fff!important;border:1px solid #5f6748!important;border-radius:1px!important;font:600 15px 'Libre Baskerville',Georgia,serif!important;transition:background-color .2s ease,transform .2s ease!important}
+.billing-page .billing-card>a:hover{background:#4f563b!important;transform:translateY(-2px)!important}
+.billing-page .billing-note{margin:14px 0 0!important;color:#66665d!important;font:12px 'Neuton',Georgia,serif!important}
+@media(max-height:820px) and (min-width:921px){.billing-page>header{height:64px!important}.billing-page>main{padding-top:18px!important}.billing-page .billing-grid{margin-top:18px!important}.billing-page .billing-card,.billing-page .billing-card.featured{min-height:280px!important;padding:18px!important}.billing-page .billing-card ul{gap:8px!important;margin:15px 0!important}}
+@media(max-width:920px){.billing-page>main{padding-top:38px!important}.billing-page .billing-grid{grid-template-columns:1fr 1fr!important}.billing-page .billing-card,.billing-page .billing-card.featured{min-height:320px!important}}
+@media(max-width:620px){.billing-page>header{height:64px!important}.billing-page>main{padding-top:28px!important}.billing-page .billing-grid{grid-template-columns:1fr!important;gap:12px!important}.billing-page .billing-card,.billing-page .billing-card.featured{min-height:0!important}.billing-page .billing-card ul{margin:18px 0!important}}
+@media(prefers-reduced-motion:reduce){.billing-page>header>a:last-child,.billing-page>header>a:last-child svg,.billing-page .billing-card,.billing-page .billing-card>a{transition:none!important}.billing-page>header>a:last-child:hover,.billing-page .billing-card:hover,.billing-page .billing-card>a:hover{transform:none!important}}
 .landing-footer .footer-center span{font-family:'Neuton',Georgia,serif!important;font-size:1.05rem!important;letter-spacing:.02em!important;color:#494a42!important;white-space:nowrap}
-.landing-footer .footer-right{display:flex;align-items:center;justify-content:flex-end}
+.landing-footer .footer-right{display:flex;align-items:center;justify-content:center}
 .landing-footer .footer-policy-link{font-family:'Libre Baskerville',Georgia,serif!important;font-size:1.05rem!important;color:#383930!important;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:4px;transition:all .18s}
 .landing-footer .footer-policy-link:hover{color:#7a402d!important;text-decoration-color:currentColor}
+@media (min-width: 769px) and (max-width: 1100px){.landing-footer{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr)!important;padding-left:28px!important;padding-right:28px!important;column-gap:20px}.landing-footer .footer-left{gap:24px}.landing-footer .footer-center span{white-space:normal}}
 @media(max-width:768px){.landing-footer{grid-template-columns:1fr!important;text-align:center!important;gap:16px!important}.landing-footer .footer-left,.landing-footer .footer-center,.landing-footer .footer-right{justify-content:center!important}.landing-footer .footer-center span{white-space:normal}}
 .account-error,.ri-error{background:#f1e2dc!important;color:#713b2c!important;border:1px solid #a65436!important}
 .connected-number-fields{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
@@ -317,9 +358,166 @@ button,a,input,select{max-width:100%}
 .map-controls button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:#faf8f1!important;color:#282820!important;border:1.5px solid #8e887b!important;border-radius:1px!important;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,0.12);transition:all .18s ease}
 .map-controls button:hover:not(:disabled){background:#f1eee5!important;border-color:#7a402d!important;color:#7a402d!important;transform:scale(1.04)}
 .map-controls button:disabled{opacity:.3!important;cursor:not-allowed!important;background:#eee8dc!important;border-color:#beb8ab!important}
+
+/* Keep the landing route map and its controls inside the first desktop viewport. */
+@media (min-width: 901px) {
+  .landing-nav-actions .button {
+    font-size: .9rem !important;
+    padding: 9px 16px !important;
+  }
+
+  .landing-map-hero {
+    box-sizing: border-box;
+    height: calc(100svh - 74px);
+    min-height: 0;
+    padding-top: clamp(16px, 2.5vh, 30px);
+    padding-bottom: clamp(16px, 2.5vh, 30px);
+    gap: clamp(24px, 3vw, 48px);
+  }
+
+  .landing-map-hero .map-frame {
+    height: min(68vh, calc(100svh - 150px));
+    min-height: 0;
+  }
+
+  .landing-map-hero .map-copy h2 {
+    font-size: clamp(34px, 2.45vw, 44px) !important;
+    line-height: 1.06;
+    margin: 8px 0;
+  }
+
+  .landing-map-hero .map-copy > p {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .landing-map-hero .map-location-form {
+    gap: 10px;
+    margin: 16px 0 12px;
+  }
+
+  .landing-map-hero .map-location-fields label {
+    font-size: .8rem !important;
+  }
+
+  .landing-map-hero .map-location-fields input {
+    padding: 9px 11px;
+    font-size: .95rem !important;
+  }
+
+  .landing-map-hero .map-location-arrow {
+    padding-bottom: 10px;
+    font-size: 20px;
+  }
+
+  .landing-map-hero .map-location-form .button {
+    padding: 10px 22px !important;
+    font-size: .95rem !important;
+  }
+
+  .landing-map-hero .map-mode-select {
+    margin: 18px 0 10px;
+  }
+
+  .landing-map-hero .map-mode-select > span,
+  .landing-map-hero .map-route-summary span {
+    font-size: .8rem !important;
+  }
+
+  .landing-map-hero .map-mode-select select {
+    padding: 7px 0;
+    font-size: .92rem !important;
+  }
+
+  .landing-map-hero .map-route-summary {
+    margin-bottom: 0;
+  }
+
+  .landing-map-hero .map-route-summary > div {
+    padding: 10px 12px;
+  }
+
+  .landing-map-hero .map-route-summary b {
+    font-size: 1.25rem !important;
+  }
+}
+
+@media (min-width: 901px) and (max-height: 800px) {
+  .landing-map-hero {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .landing-map-hero .map-frame {
+    height: calc(100svh - 118px);
+  }
+}
+
+@media (max-width: 900px) {
+  .landing-map-hero {
+    height: auto;
+  }
+}
 .route-best-path{stroke:#5f6748!important;stroke-dasharray:1;stroke-dashoffset:1;animation:route-line-draw 1.3s cubic-bezier(.2,.8,.25,1) forwards}
 @keyframes route-line-draw{to{stroke-dashoffset:0}}
 .landing-cta .hero-actions .button-outline{background:#faf8f1!important;color:#282820!important;border:1.5px solid #7a402d!important;font-family:'Libre Baskerville',Georgia,serif!important;font-size:1.1rem!important;padding:14px 26px!important;font-weight:600!important}
 .landing-cta .hero-actions .button-outline:hover{background:#7a402d!important;color:#fff!important}
 .landing-cta .hero-actions .button-primary{background:#5f6748!important;color:#fff!important;border:1.5px solid #5f6748!important;font-family:'Libre Baskerville',Georgia,serif!important;font-size:1.1rem!important;padding:14px 26px!important;font-weight:600!important}
+.landing-cta .hero-actions .button-primary{display:none!important}
 .landing-cta .hero-actions .button-primary:hover{background:#4f563b!important}
+
+/* Sign-in and sign-up use the same warm palette and contrast as the landing page. */
+.account-page{background:#f1eee5!important;color:#282820!important}
+.account-frame header>a:last-child{color:#7a402d!important}
+.account-frame .account-access-link{font-size:16px!important;transition:color .2s ease,transform .2s ease}
+.account-frame .account-access-link svg{transition:transform .2s ease}
+.account-frame .account-access-link:hover{color:#a65436!important;transform:translateY(-2px)}
+.account-frame .account-access-link:hover svg{transform:translateX(4px)}
+.account-frame .account-access-link:focus-visible{outline:2px solid #7a402d;outline-offset:5px}
+.account-brand{color:#282820!important}
+.account-brand svg{color:#5f6748!important}
+.account-story h1,.account-card h2{color:#282820!important}
+.account-story h1 em{color:#7a402d!important}
+.account-story>p{color:#55564e!important}
+.account-story-list{border-top:1px solid #aaa391!important}
+.account-story-list span{color:#494a42!important;border-bottom:1px solid #aaa391!important}
+.account-story-list b{color:#7a402d!important}
+.account-card{background:#faf8f1!important;color:#282820!important;border:1px solid #aaa391!important;border-radius:0!important}
+.account-icon{color:#5f6748!important;border-color:#8b8d73!important;background:#eee9dc!important}
+.account-card>p{color:#5f6058!important}
+.account-card label{color:#494a42!important}
+.account-card .field-label{display:block}
+.account-card .required-mark{color:#a65436!important;font-weight:700;margin-left:2px}
+.account-card label small{color:#68685f!important}
+.account-card input{background:#f1eee5!important;color:#282820!important;border:1px solid #999282!important;border-radius:0!important}
+.account-card .password-field{position:relative;display:block}
+.account-card .password-field input{padding-right:48px!important}
+.account-card .password-toggle{position:absolute;right:1px;top:1px;bottom:1px;width:42px;border:0;background:transparent;color:#68685f;font:18px/1 'Neuton',Georgia,serif;cursor:pointer}
+.account-card .password-toggle:focus-visible{outline:2px solid #7a402d;outline-offset:-3px}
+.account-card input::placeholder{color:#77766d!important;opacity:1}
+.account-card input:focus{outline:2px solid #7a402d!important;outline-offset:1px}
+.account-card form button{background:#5f6748!important;color:#fff!important;border:1px solid #5f6748!important;border-radius:0!important}
+.account-card form button:hover:not(:disabled){background:#4f563b!important}
+.account-card form button{transition:background .2s ease,transform .2s ease}
+.account-card form button:hover:not(:disabled){transform:translateY(-2px)}
+.account-card form button svg{transition:transform .2s ease}
+.account-card form button:hover:not(:disabled) svg{transform:translateX(4px)}
+.account-switch,.account-card>small{color:#55564e!important}
+.account-switch a,.account-card>small a{color:#7a402d!important}
+.account-switch a:hover,.account-card>small a:hover{color:#a65436!important}
+.account-card .account-error{background:#f1e2dc!important;color:#713b2c!important;border:1px solid #a65436!important;border-radius:0!important}
+@media(prefers-reduced-motion:reduce){.account-frame .account-access-link,.account-frame .account-access-link svg,.account-card form button,.account-card form button svg{transition:none!important}.account-frame .account-access-link:hover,.account-card form button:hover:not(:disabled){transform:none}}
+.account-card .account-notice{margin:0 0 18px!important;color:#4f5b38!important;font:14px 'Neuton',Georgia,serif!important}
+.sidebar .org b,.sidebar .profile b{color:#282820!important}
+.sidebar .org span,.sidebar .profile span{color:#62635b!important}
+.sidebar .profile{border-top-color:#aaa391!important}
+.sidebar-signout{display:block;width:100%;padding:9px 7px;border:0;background:transparent;color:#7a402d;text-align:left;font:600 13px 'Neuton',Georgia,serif;cursor:pointer}
+.sidebar-signout:hover{color:#a65436;text-decoration:underline}
+.sidebar-signout:focus-visible{outline:2px solid #7a402d;outline-offset:2px}
+.sidebar .nav-item{min-height:44px;height:auto;padding:10px 14px;font-size:15px!important;line-height:1.25;color:#383930!important}
+.sidebar .nav-item.active{font-weight:700}
+.sidebar .nav-count{font-size:12px}
+.dashboard-metrics .metric-card-minimal{padding:22px 18px}
+.dashboard-metrics .metric-label{font-size:16px!important;font-weight:700;color:#383930!important}
+.dashboard-metrics .metric-value{font-size:32px!important;margin-top:8px}
+.dashboard-metrics .metric-foot{font-size:13px!important;line-height:1.3;margin-top:5px}

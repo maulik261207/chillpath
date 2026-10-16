@@ -32,6 +32,17 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> Lo
     user = await db.scalar(select(User).where(User.email == payload.email.lower()))
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="invalid credentials")
+    organization = await db.scalar(
+        select(Organization)
+        .join(Membership, Membership.organization_id == Organization.id)
+        .where(Membership.user_id == user.id, Membership.status == "active", Organization.status == "active")
+        .order_by(Membership.joined_at.asc())
+        .limit(1)
+    )
     # Session persistence is deliberately deferred to the session store milestone.
-    return LoginResponse(access_token=secrets.token_urlsafe(32))
+    return LoginResponse(
+        access_token=secrets.token_urlsafe(32),
+        organization_id=organization.id if organization else None,
+        organization_name=organization.name if organization else None,
+    )
 

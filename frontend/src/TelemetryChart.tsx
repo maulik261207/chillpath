@@ -7,9 +7,9 @@ export default function TelemetryChart({scenario,readings,minimumC=2,maximumC=8,
         let label = '';
         try {
           const d = new Date(item.observedAt);
-          label = isNaN(d.getTime()) ? item.observedAt.slice(11, 19) : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          label = isNaN(d.getTime()) ? String(item.observedAt).slice(11, 19) : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         } catch {
-          label = item.observedAt?.slice(11, 19) || '';
+          label = String(item.observedAt ?? '').slice(11, 19);
         }
         return {
           t: label,

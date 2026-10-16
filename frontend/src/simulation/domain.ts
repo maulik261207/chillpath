@@ -5,7 +5,7 @@ export type Reading = {
   eventId: string;
   observedAt: number;
   temperatureC: number;
-  humidityPct: number;
+  humidityPct: number | null;
   credible: boolean;
 };
 

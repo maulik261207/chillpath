@@ -1,12 +1,21 @@
 import asyncio
+import time
 import httpx
 from fastapi import APIRouter, HTTPException, Query, Response
 from app.core.config import get_settings
-from app.schemas.maps import RouteRequest, RerouteRequest
+from app.schemas.maps import Coordinate, RouteRequest, RerouteRequest
 from app.services.geoapify import GeoapifyClient, summarize_routes
 from app.services.tomtom import TomTomClient, summarize_tomtom_routes
 
 router = APIRouter(prefix="/maps", tags=["maps"])
+_ROUTE_CACHE_TTL_SECONDS = 300
+_route_cache: dict[tuple, tuple[float, dict]] = {}
+_default_route_warmup_task: asyncio.Task | None = None
+
+
+def _route_cache_key(payload: RouteRequest) -> tuple:
+    points = tuple((round(point.latitude, 5), round(point.longitude, 5)) for point in payload.waypoints)
+    return points, payload.mode, payload.alternatives
 
 TRANSPORT_MODES = [
     {"id": "walk", "label": "Walking", "category": "pedestrian"},
@@ -67,6 +76,23 @@ async def autocomplete(text: str = Query(min_length=2, max_length=200), limit: i
 
 @router.post("/route")
 async def route(payload: RouteRequest):
+    key = _route_cache_key(payload)
+    cached = _route_cache.get(key)
+    if cached and time.monotonic() - cached[0] < _ROUTE_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    if key == _default_route_cache_key() and _default_route_warmup_task and not _default_route_warmup_task.done():
+        await _default_route_warmup_task
+        cached = _route_cache.get(key)
+        if cached and time.monotonic() - cached[0] < _ROUTE_CACHE_TTL_SECONDS:
+            return cached[1]
+
+    result = await _calculate_route(payload)
+    _route_cache[key] = (time.monotonic(), result)
+    return result
+
+
+async def _calculate_route(payload: RouteRequest) -> dict:
     points = [(point.latitude, point.longitude) for point in payload.waypoints]
     settings = get_settings()
     if settings.tomtom_api_key and payload.mode in {"drive", "light_truck", "medium_truck", "truck", "heavy_truck", "long_truck", "truck_dangerous_goods"}:
@@ -83,6 +109,41 @@ async def route(payload: RouteRequest):
         return {"routes": summarize_routes(raw, payload.mode)}
     except httpx.HTTPError as exc:
         raise HTTPException(502, "Geoapify routing request failed") from exc
+
+
+async def warm_default_route() -> None:
+    """Prime the real provider result before the homepage's first route request."""
+    request = RouteRequest(
+        waypoints=[
+            Coordinate(latitude=12.9716, longitude=77.5946),
+            Coordinate(latitude=12.2958, longitude=76.6394),
+        ],
+        mode="truck",
+        alternatives=1,
+    )
+    try:
+        result = await _calculate_route(request)
+        _route_cache[_route_cache_key(request)] = (time.monotonic(), result)
+    except Exception:
+        # The app can still start when routing credentials or the provider are unavailable.
+        return
+
+
+def _default_route_cache_key() -> tuple:
+    return _route_cache_key(RouteRequest(
+        waypoints=[
+            Coordinate(latitude=12.9716, longitude=77.5946),
+            Coordinate(latitude=12.2958, longitude=76.6394),
+        ],
+        mode="truck",
+        alternatives=1,
+    ))
+
+
+def schedule_default_route_warmup() -> None:
+    global _default_route_warmup_task
+    if _default_route_warmup_task is None or _default_route_warmup_task.done():
+        _default_route_warmup_task = asyncio.create_task(warm_default_route())
 
 @router.post("/reroute-options")
 async def reroute_options(payload: RerouteRequest):

@@ -29,4 +29,6 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    organization_id: UUID | None = None
+    organization_name: str | None = None
 
