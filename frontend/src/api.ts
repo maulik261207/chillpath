@@ -106,6 +106,7 @@ export type HistoricalSensorSummary = {
 };
 export type HistoricalDataset = { id: string; name: string; status: string; provenance: string; source_timezone: string | null; sensors: Array<{ sensor_id: string; rows: number; missing_temperature: number; missing_humidity: number }>; quality_report: Record<string, unknown> };
 export type HistoricalPoint = { sensor_id: string; observed_at: string; temperature_c: number | null; humidity_pct: number | null; temperature_missing: boolean; humidity_missing: boolean };
+export function getLocalHistoricalWorkspace() { return api<{ organization_id: string; organization_name: string }>('/historical/local-workspace'); }
 export function getHistoricalDatasets(organization: string) { return api<{ source: string; items: HistoricalDataset[] }>(`/historical/datasets?organization_id=${encodeURIComponent(organization)}`); }
 export function getHistoricalSummary(dataset: string, organization: string) { return api<{ source: string; sensors: HistoricalSensorSummary[] }>(`/historical/datasets/${dataset}/summary?organization_id=${encodeURIComponent(organization)}`); }
 export function getHistoricalSeries(dataset: string, organization: string, sensorIds: string[]) { const query = new URLSearchParams({ organization_id: organization, limit: '1200' }); sensorIds.forEach(id => query.append('sensor_ids', id)); return api<{ source: string; sampled: boolean; stride: number; points: HistoricalPoint[] }>(`/historical/datasets/${dataset}/series?${query}`); }

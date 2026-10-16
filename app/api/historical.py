@@ -11,9 +11,28 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import func, or_, select
 
 from app.db.session import SessionLocal
+from app.core.config import get_settings
 from app.models.historical import ExperimentAction, HistoricalDataset, HistoricalMeasurement, HistoricalSensor
+from app.models.identity import Organization
 
 router = APIRouter(prefix="/historical", tags=["historical intelligence"])
+
+
+@router.get("/local-workspace")
+async def local_workspace():
+    """Resolve the imported research tenant only for the local SQLite workflow."""
+    if get_settings().database_mode.lower() != "sqlite":
+        raise HTTPException(404, "local historical workspace is unavailable")
+    async with SessionLocal() as db:
+        row = (await db.execute(
+            select(Organization.id, Organization.name)
+            .join(HistoricalDataset, HistoricalDataset.organization_id == Organization.id)
+            .order_by(HistoricalDataset.created_at.desc())
+            .limit(1)
+        )).first()
+        if row is None:
+            raise HTTPException(404, "no imported historical workspace found")
+        return {"organization_id": str(row.id), "organization_name": row.name}
 
 
 async def _dataset(db, dataset_id: UUID, organization_id: UUID) -> HistoricalDataset:
