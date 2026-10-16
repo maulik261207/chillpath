@@ -1,16 +1,20 @@
 # Import the historical dataset on Windows
 
 1. Create a folder named `datasets` in the ChillPath project root.
-2. Put these files directly inside it:
-   - `Preprocessed.zip`
-   - `experiment_actions.csv`
+2. Put `SENSOR01_preprocessed.csv` through `SENSOR09_preprocessed.csv` directly inside it.
+   `experiment_actions.csv` is optional; when present, it is imported and shown as historical action markers.
 3. SQLite mode is automatic and uses the project-root `chillpath.db`. A stale PostgreSQL URL in `.env` cannot override the batch scripts.
 4. The importer initializes SQLite tables additively; PostgreSQL does not need to be running.
-5. Double-click `import_dataset.bat`.
+5. Run the streaming importer:
+   ```bash
+   .venv/bin/python scripts/import_historical_dataset.py \
+     --archive datasets --organization-slug demo-123
+   ```
+   A ZIP containing the nine sensor files is still accepted through `--archive`.
 6. Select an existing organization, or type `y` when prompted to create `ChillPath Demo`.
 7. Read the final counts and open `import_verification_report.txt`.
 
-The tool uses the existing streaming importer, preserves NULL measurements and source timestamps, and is safe to run again. It never applies migrations automatically, deletes operational data, sends SMS, or starts replay.
+The tool uses the existing streaming importer, preserves NULL measurements and source timestamps, and is safe to run again. It creates missing local tables additively, never deletes operational data, sends SMS, or starts replay.
 
 Common errors:
 

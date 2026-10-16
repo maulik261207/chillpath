@@ -7,6 +7,7 @@ const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 export type SessionIdentity = {
   name: string;
   email?: string;
+  organizationId?: string;
   organizationName: string;
   kind: 'demo' | 'account';
   signedInAt: number;
@@ -52,11 +53,12 @@ export function signInDemo(email: string, password: string): boolean {
   return true;
 }
 
-export function signInAccount(email: string, organizationName: string | null): void {
+export function signInAccount(email: string, organizationName: string | null, organizationId?: string | null): void {
   const accountName = email.split('@')[0].replace(/[._-]+/g, ' ').trim();
   saveSessionIdentity({
     name: accountName ? accountName.replace(/\b\w/g, letter => letter.toUpperCase()) : email,
     email,
+    organizationId: organizationId ?? undefined,
     organizationName: organizationName?.trim() || 'ChillPath workspace',
     kind: 'account',
     signedInAt: Date.now(),

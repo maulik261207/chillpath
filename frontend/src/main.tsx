@@ -13,6 +13,7 @@ import ShipmentDetailContent from './ShipmentDetailContent';
 import TelemetryScene from './TelemetryChart';
 import RouteMap from './RouteMap';
 import EnginesDashboard from './EnginesDashboard';
+import HistoricalIntelligence from './HistoricalIntelligence';
 import './redesign.css';
 import { AccountPage, BillingPage } from './AccountPages';
 import LegalPage from './LegalPages';
@@ -53,7 +54,7 @@ function TemperatureChart({large=false}:{large?:boolean}){
   </VisualBoundary>;
 }
 function IconBrand(){return <Link to="/" className="brand"><span className="brand-mark"><Snowflake size={20}/></span><span className="brand-text">Chill<span className="brand-light">Path</span></span></Link>}
-function Shell({children}:{children:React.ReactNode}){
+function Shell({children, hideTopbar=false}:{children:React.ReactNode; hideTopbar?:boolean}){
   const [open,setOpen]=useState(false);
   const navigate=useNavigate();
   const offline=useApp(s=>s.offline);
@@ -67,14 +68,14 @@ function Shell({children}:{children:React.ReactNode}){
       <IconBrand/>
       <div className="org"><div className="org-avatar">{orgName[0]}</div><div><b>{orgName}</b><span>{'Operations workspace'}</span></div></div>
       <div className="nav-label">WORKSPACE</div>
-      <nav>{[['Overview','/dashboard'],['Live Sensor','/live-sensor'],['Shipments','/shipments'],['Route intelligence','/route-intelligence'],['Engines','/engines'],['Test scenarios','/simulator']].map(([name,path])=><NavLink key={path} to={path} className={({isActive})=>`nav-item ${isActive?'active':''}`} onClick={()=>setOpen(false)}>{name}</NavLink>)}</nav>
+      <nav>{[['Overview','/dashboard'],['Live Sensor','/live-sensor'],['Historical intelligence','/historical'],['Shipments','/shipments'],['Route intelligence','/route-intelligence'],['Engines','/engines'],['Test scenarios','/simulator']].map(([name,path])=><NavLink key={path} to={path} className={({isActive})=>`nav-item ${isActive?'active':''}`} onClick={()=>setOpen(false)}>{name}</NavLink>)}</nav>
       <div className="side-bottom">
         <div className={`connection ${offline?'offline':''}`}><span className="pulse"/>{offline?'Offline · buffering':'Connected'}</div>
         <div className="profile"><div className="profile-avatar">{initials}</div><div><b title={profileName}>{profileName}</b><span>{identity?.kind==='demo'?'Cold-chain operator':'Workspace member'}</span></div></div>
         <button className="sidebar-signout" type="button" onClick={leaveWorkspace}>Sign out</button>
       </div>
     </aside>
-    <div className="app-main"><header className="topbar"><button className="icon-button mobile-menu" onClick={()=>setOpen(!open)} aria-label="Toggle menu"><Menu size={19}/></button><div className="crumb"><span>{orgName}</span><span className="slash">/</span><b>Operations</b></div></header><main>{children}</main></div>
+    <div className={`app-main ${hideTopbar?'app-main-no-topbar':''}`}>{hideTopbar ? <button className="icon-button mobile-menu historical-mobile-menu" onClick={()=>setOpen(!open)} aria-label="Toggle menu"><Menu size={19}/></button> : <header className="topbar"><button className="icon-button mobile-menu" onClick={()=>setOpen(!open)} aria-label="Toggle menu"><Menu size={19}/></button><div className="crumb"><span>{orgName}</span><span className="slash">/</span><b>Operations</b></div></header>}<main>{children}</main></div>
   </div>;
 }
 function Heading({eyebrow,title,desc,right}:{eyebrow:string;title:string;desc:string;right?:React.ReactNode}){
@@ -153,7 +154,7 @@ function Simulator(){const scenario=useApp(s=>s.scenario);const running=useApp(s
 function Landing(){const nav=useNavigate();return <div className="landing"><header className="landing-nav"><IconBrand/><div className="landing-nav-actions"><Link className="button button-outline landing-signin-btn" to="/login">Sign in</Link></div></header><RouteMap hero/><section className="manifesto" id="platform"><h2>Know where it is.<br/>Know <span>what to do next.</span></h2><p>When plans change, teams can see the route, check shipment conditions and choose a clear next step.</p><div className="manifesto-cards"><article><span>01 / TRACK</span><h3>Follow every shipment.</h3><p>See the route, temperature and sensor status in one place.</p></article><article><span>02 / CHECK</span><h3>Spot real problems.</h3><p>Tell the difference between a true temperature change, a sensor issue and missing data.</p></article><article><span>03 / RESPOND</span><h3>Choose the next step.</h3><p>Review clear recovery options while the operator stays in control.</p></article></div></section><section className="landing-cta" id="technology"><div><h2>See the issue.<br/><span>Choose the next move.</span></h2></div><div className="hero-actions"><button className="button button-outline" onClick={()=>nav('/engines')}>See how it works <ArrowRight size={15}/></button><button className="button button-primary" onClick={()=>nav('/simulator')}>Try a test scenario <ArrowRight size={15}/></button></div></section><footer className="landing-footer"><div className="footer-side footer-left"><IconBrand/><Link to="/terms" className="footer-policy-link">Terms of Service</Link></div><div className="footer-center"><span>© 2026 ChillPath · Shipment decisions with human oversight</span></div><div className="footer-side footer-right"><Link to="/privacy" className="footer-policy-link">Privacy Policy</Link></div></footer></div>}
 function Technology(){return <Shell><div className="page-wrap"><Heading eyebrow="HOW CHILLPATH WORKS" title="Evidence before urgency" desc="A transparent operational workflow that connects shipment records, timestamped measurements and operator decisions."/><div className="manifesto-cards technology-cards"><article><span>01 / INGEST</span><Radio/><h3>Measurements keep their context.</h3><p>Temperature readings retain their measurement time and stable event identifier, including while the demo is offline.</p></article><article><span>02 / CLASSIFY</span><Gauge/><h3>Signal quality shapes the conclusion.</h3><p>Repeated readings can support an excursion classification; isolated spikes and long gaps remain uncertain.</p></article><article><span>03 / RESPOND</span><Compass/><h3>People authorize interventions.</h3><p>Recommendations explain their assumptions. A human operator records approval or rejection.</p></article></div><section className="panel" style={{padding:24,marginTop:24}}><div className="panel-title">Prototype boundaries</div><p className="panel-sub">The default fleet is synthetic demo data. Connected shipment records use the configured API. The current API uses organization IDs for scoping and does not provide production authentication or authorization.</p><Link className="button button-primary" to="/simulator">Run the guided demo <ArrowRight size={15}/></Link></section></div></Shell>}
 function NotFound(){return <div className="not-found-page"><IconBrand/><main><p className="error-code">404</p><h1>We could not find that page.</h1><p>The address may be incorrect, or the page may have moved.</p><div><Link className="button button-primary" to="/">Return home</Link></div></main><footer><Link to="/terms">Terms</Link><Link to="/privacy">Privacy</Link></footer></div>}
-const pageTitles: Record<string,string> = {'/':'Route planning','/login':'Sign in','/signup':'Create account','/billing':'Access','/terms':'Terms of Service','/privacy':'Privacy Policy','/dashboard':'Overview','/live-sensor':'Live Sensor','/shipments':'Shipments','/engines':'Engines','/route-intelligence':'Route intelligence','/simulator':'Test scenarios','/technology':'System architecture'};
+const pageTitles: Record<string,string> = {'/':'Route planning','/login':'Sign in','/signup':'Create account','/billing':'Access','/terms':'Terms of Service','/privacy':'Privacy Policy','/dashboard':'Overview','/live-sensor':'Live Sensor','/historical':'Historical Intelligence','/shipments':'Shipments','/engines':'Engines','/route-intelligence':'Route intelligence','/simulator':'Test scenarios','/technology':'System architecture'};
 function PageMeta(){const {pathname}=useLocation();React.useEffect(()=>{const base=pathname.startsWith('/shipments/')?'Shipment details':pageTitles[pathname]??'Page not found';document.title=`${base} | ChillPath`;window.scrollTo({top:0,left:0,behavior:'auto'});},[pathname]);return null;}
 function RequireSignIn(){
   const location=useLocation();
@@ -171,6 +172,7 @@ function App(){return <BrowserRouter><PageMeta/><Routes>
   <Route element={<RequireSignIn/>}>
     <Route path="/dashboard" element={<Dashboard/>}/>
     <Route path="/live-sensor" element={<Shell><div className="page-wrap"><LiveDashboard/></div></Shell>}/>
+    <Route path="/historical" element={<Shell hideTopbar><HistoricalIntelligence/></Shell>}/>
     <Route path="/shipments" element={<Shipments/>}/>
     <Route path="/shipments/:id" element={<ShipmentDetailPage/>}/>
     <Route path="/engines" element={<Shell><EnginesDashboard/></Shell>}/>

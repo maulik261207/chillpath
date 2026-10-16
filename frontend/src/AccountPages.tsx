@@ -35,8 +35,8 @@ export function AccountPage({ mode }: { mode: 'login' | 'register' }) {
           if (!signInDemo(identifier, password)) throw new Error('Incorrect demo password.');
         } else {
           if (!identifier.includes('@')) throw new Error('Enter a valid work email.');
-          const account = await api<{ organization_name: string | null }>('/auth/login', { method: 'POST', body: JSON.stringify({ email: identifier, password }) });
-          signInAccount(identifier.trim(), account.organization_name);
+          const account = await api<{ organization_name: string | null; organization_id: string | null }>('/auth/login', { method: 'POST', body: JSON.stringify({ email: identifier, password }) });
+          signInAccount(identifier.trim(), account.organization_name, account.organization_id);
         }
       }
       const requestedPath = (location.state as { from?: string } | null)?.from;

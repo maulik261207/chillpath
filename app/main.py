@@ -24,6 +24,7 @@ from app.api.road_intelligence import router as road_intelligence_router
 from app.api.shipment_route_context import router as shipment_route_context_router
 from app.api.local_database import router as local_database_router
 from app.api.replays import router as replays_router
+from app.api.historical import router as historical_router
 from app.services.replay_worker import shutdown_workers
 from app.db.base import Base
 from app.db.session import engine
@@ -62,6 +63,7 @@ app.include_router(road_intelligence_router, prefix=settings.api_prefix)
 app.include_router(shipment_route_context_router, prefix=settings.api_prefix)
 app.include_router(local_database_router, prefix=settings.api_prefix)
 app.include_router(replays_router, prefix=settings.api_prefix)
+app.include_router(historical_router, prefix=settings.api_prefix)
 
 
 @app.get("/health/live", tags=["health"])

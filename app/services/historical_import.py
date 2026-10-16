@@ -92,34 +92,77 @@ def file_sha256(path: str | Path) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
-async def import_dataset(db: AsyncSession, archive_path: str | Path, actions_path: str | Path,
+def _sensor_names(source: str | Path) -> list[str]:
+    """Return the expected sensor filenames from a ZIP or datasets directory."""
+    path = Path(source)
+    if path.is_dir():
+        names = sorted(item.name for item in path.iterdir() if item.is_file() and item.name in EXPECTED)
+        missing = EXPECTED - set(names)
+        if missing:
+            raise ValueError(f"missing sensor files: {sorted(missing)}")
+        return names
+    return validate_zip(path)
+
+def _source_digest(source: str | Path, actions_path: str | Path | None = None) -> str:
+    """Hash filenames and bytes so directory imports remain idempotent."""
+    path = Path(source)
+    digest = hashlib.sha256()
+    if path.is_dir():
+        for name in _sensor_names(path):
+            digest.update(name.encode("utf-8")); digest.update(b"\0")
+            with (path / name).open("rb") as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest.update(chunk)
+    else:
+        digest.update(file_sha256(path).encode("ascii"))
+    if actions_path:
+        action_file = Path(actions_path)
+        digest.update(ACTION_FILE.encode("utf-8")); digest.update(b"\0")
+        with action_file.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
+
+def _open_sensor(source: str | Path, name: str, archive: zipfile.ZipFile | None = None):
+    path = Path(source)
+    if path.is_dir():
+        return (path / name).open("rb")
+    if archive is None:
+        raise ValueError("ZIP archive handle is required")
+    return archive.open(name)
+
+async def import_dataset(db: AsyncSession, archive_path: str | Path, actions_path: str | Path | None,
                          organization_id, source_timezone: str | None = None, batch_size: int = 5000):
     """Import measurements and actions in bounded batches; repeated content is a no-op."""
-    digest = file_sha256(archive_path)
+    source = Path(archive_path)
+    digest = _source_digest(source, actions_path)
     existing = await db.scalar(select(HistoricalDataset).where(
         HistoricalDataset.organization_id == organization_id,
         HistoricalDataset.content_sha256 == digest))
     if existing:
         return existing, {"status": "duplicate", "dataset_id": str(existing.id)}
-    dataset = HistoricalDataset(organization_id=organization_id, name=Path(archive_path).name,
+    dataset = HistoricalDataset(organization_id=organization_id, name=source.name,
         content_sha256=digest, source_timezone=source_timezone)
     db.add(dataset); await db.flush()
     job = DatasetImportJob(dataset_id=dataset.id, organization_id=organization_id)
     db.add(job); await db.flush()
     report = ImportReport()
     try:
-        validate_zip(archive_path)
-        with zipfile.ZipFile(archive_path) as archive:
-            for name in sorted(EXPECTED):
+        names = _sensor_names(source)
+        archive = zipfile.ZipFile(source) if source.is_file() else None
+        try:
+            for name in names:
                 sensor_id = name.split("_", 1)[0]
                 sensor = HistoricalSensor(dataset_id=dataset.id, sensor_id=sensor_id, source_filename=name)
                 db.add(sensor); await db.flush()
                 stats = report.sensors[sensor_id] = SensorReport()
                 batch = []
-                with archive.open(name) as raw:
+                with _open_sensor(source, name) as raw:
                     text = io.TextIOWrapper(raw, encoding="utf-8", newline="")
                     for row_number, ts, temp, humidity in iter_measurements(text, sensor_id):
                         stats.rows += 1; stats.missing_temperature += temp is None; stats.missing_humidity += humidity is None
+                        stats.first_timestamp = stats.first_timestamp or ts.isoformat()
+                        stats.last_timestamp = ts.isoformat()
                         batch.append(HistoricalMeasurement(dataset_id=dataset.id, import_job_id=job.id,
                             sensor_id=sensor_id, source_filename=name, source_row_number=row_number,
                             original_timestamp=ts, temperature_c=temp, humidity_pct=humidity,
@@ -129,12 +172,16 @@ async def import_dataset(db: AsyncSession, archive_path: str | Path, actions_pat
                     if batch: db.add_all(batch); await db.flush()
                 sensor.row_count, sensor.missing_temperature, sensor.missing_humidity = stats.rows, stats.missing_temperature, stats.missing_humidity
                 job.accepted_rows += stats.rows
-            with open(actions_path, encoding="utf-8", newline="") as handle:
-                for row_number, row in enumerate(csv.DictReader(handle, delimiter=";"), start=2):
-                    start = datetime.strptime(f"{row['Date']} {row['Start Time']}", "%Y-%m-%d %H:%M:%S")
-                    end = datetime.strptime(f"{row['Date']} {row['End Time']}", "%Y-%m-%d %H:%M:%S")
-                    db.add(ExperimentAction(dataset_id=dataset.id, source_row_number=row_number, action=row["Action"], original_start=start, original_end=end))
-                    report.actions += 1
+            if actions_path and Path(actions_path).exists():
+                with open(actions_path, encoding="utf-8", newline="") as handle:
+                    for row_number, row in enumerate(csv.DictReader(handle, delimiter=";"), start=2):
+                        start = datetime.strptime(f"{row['Date']} {row['Start Time']}", "%Y-%m-%d %H:%M:%S")
+                        end = datetime.strptime(f"{row['Date']} {row['End Time']}", "%Y-%m-%d %H:%M:%S")
+                        db.add(ExperimentAction(dataset_id=dataset.id, source_row_number=row_number, action=row["Action"], original_start=start, original_end=end))
+                        report.actions += 1
+        finally:
+            if archive is not None:
+                archive.close()
         dataset.quality_report = {"sensors": {k: vars(v) for k, v in report.sensors.items()}, "actions": report.actions}
         job.status = dataset.status = "IMPORTED"
         await db.commit()

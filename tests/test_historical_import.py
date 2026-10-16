@@ -1,6 +1,6 @@
 import io, zipfile
 import pytest
-from app.services.historical_import import iter_measurements, validate_zip, parse_archive
+from app.services.historical_import import iter_measurements, validate_zip, parse_archive, _sensor_names, _source_digest
 
 def test_semicolon_timestamp_and_missing_values():
     rows = list(iter_measurements(io.StringIO("Date;Time;Temperature;Humidity\n02.09.2024;09:35:25;21.2;\n"), "SENSOR01"))
@@ -20,3 +20,9 @@ def test_archive_requires_exact_sensor_members(tmp_path):
         z.writestr("SENSOR01_preprocessed.csv", "Date;Time;Temperature;Humidity\n")
     with pytest.raises(ValueError, match="missing"):
         validate_zip(path)
+
+def test_directory_source_requires_all_sensor_files_and_has_stable_digest(tmp_path):
+    for number in range(1, 10):
+        (tmp_path / f"SENSOR{number:02d}_preprocessed.csv").write_text("Date;Time;Temperature;Humidity\n02.09.2024;09:35:25;21.2;62.5\n")
+    assert len(_sensor_names(tmp_path)) == 9
+    assert _source_digest(tmp_path) == _source_digest(tmp_path)

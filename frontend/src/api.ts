@@ -86,3 +86,30 @@ export async function getLiveTelemetryHistory(limit = 36) {
   const payload = await response.json() as { points?: LiveTelemetry[] };
   return payload.points ?? [];
 }
+
+export type HistoricalSensorSummary = {
+  sensor_id: string;
+  total: number;
+  temperature_valid: number;
+  humidity_valid: number;
+  temperature_missing: number;
+  humidity_missing: number;
+  completeness_pct: number;
+  temperature_min_c: number | null;
+  temperature_max_c: number | null;
+  temperature_avg_c: number | null;
+  humidity_min_pct: number | null;
+  humidity_max_pct: number | null;
+  humidity_avg_pct: number | null;
+  first_timestamp: string | null;
+  last_timestamp: string | null;
+};
+export type HistoricalDataset = { id: string; name: string; status: string; provenance: string; source_timezone: string | null; sensors: Array<{ sensor_id: string; rows: number; missing_temperature: number; missing_humidity: number }>; quality_report: Record<string, unknown> };
+export type HistoricalPoint = { sensor_id: string; observed_at: string; temperature_c: number | null; humidity_pct: number | null; temperature_missing: boolean; humidity_missing: boolean };
+export function getHistoricalDatasets(organization: string) { return api<{ source: string; items: HistoricalDataset[] }>(`/historical/datasets?organization_id=${encodeURIComponent(organization)}`); }
+export function getHistoricalSummary(dataset: string, organization: string) { return api<{ source: string; sensors: HistoricalSensorSummary[] }>(`/historical/datasets/${dataset}/summary?organization_id=${encodeURIComponent(organization)}`); }
+export function getHistoricalSeries(dataset: string, organization: string, sensorIds: string[]) { const query = new URLSearchParams({ organization_id: organization, limit: '1200' }); sensorIds.forEach(id => query.append('sensor_ids', id)); return api<{ source: string; sampled: boolean; stride: number; points: HistoricalPoint[] }>(`/historical/datasets/${dataset}/series?${query}`); }
+export function getHistoricalActions(dataset: string, organization: string) { return api<{ source: string; items: Array<{ action: string; start: string; end: string }> }>(`/historical/datasets/${dataset}/actions?organization_id=${encodeURIComponent(organization)}`); }
+export type HistoricalReplay = { id: string; status: string; speed: string; progress_pct: number; cursor_timestamp: string; start_timestamp: string; end_timestamp: string; };
+export function createHistoricalReplay(dataset: string, organization: string, sensorIds: string[]) { return api<HistoricalReplay>('/replays', { method: 'POST', body: JSON.stringify({ organization_id: organization, dataset_id: dataset, sensor_ids: sensorIds, speed: '60x' }) }); }
+export function controlHistoricalReplay(replay: string, organization: string, action: 'start' | 'pause' | 'resume' | 'stop' | 'restart') { return api<HistoricalReplay>(`/replays/${replay}/${action}?organization_id=${encodeURIComponent(organization)}`, { method: 'POST' }); }
