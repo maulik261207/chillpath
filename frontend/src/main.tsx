@@ -68,7 +68,7 @@ function Shell({children, hideTopbar=false}:{children:React.ReactNode; hideTopba
       <IconBrand/>
       <div className="org"><div className="org-avatar">{orgName[0]}</div><div><b>{orgName}</b><span>{'Operations workspace'}</span></div></div>
       <div className="nav-label">WORKSPACE</div>
-      <nav>{[['Overview','/dashboard'],['Live Sensor','/live-sensor'],['Historical intelligence','/historical'],['Shipments','/shipments'],['Route intelligence','/route-intelligence'],['Engines','/engines'],['Test scenarios','/simulator']].map(([name,path])=><NavLink key={path} to={path} className={({isActive})=>`nav-item ${isActive?'active':''}`} onClick={()=>setOpen(false)}>{name}</NavLink>)}</nav>
+      <nav>{[['Overview','/dashboard'],['Live Sensor','/live-sensor'],['Historical intelligence','/historical'],['Shipments','/shipments'],['Route intelligence','/route-intelligence'],['Engines','/engines']].map(([name,path])=><NavLink key={path} to={path} className={({isActive})=>`nav-item ${isActive?'active':''}`} onClick={()=>setOpen(false)}>{name}</NavLink>)}</nav>
       <div className="side-bottom">
         <div className={`connection ${offline?'offline':''}`}><span className="pulse"/>{offline?'Offline · buffering':'Connected'}</div>
         <div className="profile"><div className="profile-avatar">{initials}</div><div><b title={profileName}>{profileName}</b><span>{identity?.kind==='demo'?'Cold-chain operator':'Workspace member'}</span></div></div>

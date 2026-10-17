@@ -52,7 +52,7 @@ export default function HistoricalIntelligence() {
     if (!organization || !datasetId) return;
     if (!selectedSensor) return;
     setLoading(true); setError('');
-    Promise.all([getHistoricalSummary(datasetId, organization), getHistoricalSeries(datasetId, organization, [selectedSensor]), getHistoricalActions(datasetId, organization)])
+    Promise.all([getHistoricalSummary(datasetId, organization, selectedSensor), getHistoricalSeries(datasetId, organization, [selectedSensor]), getHistoricalActions(datasetId, organization)])
       .then(([summaryResult, seriesResult, actionsResult]) => { setSummary(summaryResult.sensors); setPoints(seriesResult.points); setActions(actionsResult.items); })
       .catch(cause => setError(cause instanceof Error ? cause.message : 'Historical data could not be loaded.'))
       .finally(() => setLoading(false));

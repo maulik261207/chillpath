@@ -69,9 +69,16 @@ async def list_datasets(organization_id: UUID):
 
 
 @router.get("/datasets/{dataset_id}/summary")
-async def dataset_summary(dataset_id: UUID, organization_id: UUID):
+async def dataset_summary(
+    dataset_id: UUID,
+    organization_id: UUID,
+    sensor_id: str | None = Query(default=None, min_length=1, max_length=80),
+):
     async with SessionLocal() as db:
         await _dataset(db, dataset_id, organization_id)
+        filters = [HistoricalMeasurement.dataset_id == dataset_id]
+        if sensor_id:
+            filters.append(HistoricalMeasurement.sensor_id == sensor_id)
         rows = (await db.execute(select(
             HistoricalMeasurement.sensor_id,
             func.count().label("total"),
@@ -85,7 +92,7 @@ async def dataset_summary(dataset_id: UUID, organization_id: UUID):
             func.avg(HistoricalMeasurement.humidity_pct).label("humidity_avg_pct"),
             func.min(HistoricalMeasurement.original_timestamp).label("first_timestamp"),
             func.max(HistoricalMeasurement.original_timestamp).label("last_timestamp"),
-        ).where(HistoricalMeasurement.dataset_id == dataset_id)
+        ).where(*filters)
          .group_by(HistoricalMeasurement.sensor_id)
          .order_by(HistoricalMeasurement.sensor_id))).all()
         return {"source": "HISTORICAL_RESEARCH", "sensors": [
