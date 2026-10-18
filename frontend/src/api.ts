@@ -1,6 +1,9 @@
-export const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000';
+const configuredApiBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
+export const apiBase = configuredApiBase !== undefined
+  ? configuredApiBase.replace(/\/$/, '')
+  : import.meta.env.PROD ? '' : 'http://127.0.0.1:8000';
 export const organizationId = import.meta.env.VITE_ORGANIZATION_ID as string | undefined;
-export const connectedMode = Boolean(apiBase && organizationId);
+export const connectedMode = Boolean(organizationId && (apiBase || import.meta.env.PROD));
 export const liveTelemetryApiKey = (import.meta.env.VITE_LIVE_TELEMETRY_API_KEY ?? import.meta.env.VITE_CHILLPATH_API_KEY) as string | undefined;
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {

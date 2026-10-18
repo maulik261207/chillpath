@@ -40,6 +40,47 @@ Run the backend suite:
 pytest
 ```
 
+## Deploying on Vercel
+
+The repository is configured as a single Vercel FastAPI deployment: Vercel builds
+the React app and serves its static files from the CDN, while `/v1/*` and health
+requests are handled by FastAPI. Import the repository as a Vercel project with
+the repository root as its Root Directory.
+
+Configure these Vercel environment variables before deploying:
+
+- `ENVIRONMENT=production`
+- `DATABASE_MODE=postgres`
+- `DATABASE_URL=postgresql+asyncpg://...` for a managed PostgreSQL database
+- `AUTO_CREATE_SCHEMA=false`
+- `CORS_ORIGINS=https://your-deployment-domain`
+- `VITE_ORGANIZATION_ID=<organization UUID>` if the frontend should enable
+  connected shipment mode
+- `VITE_MAPTILER_API_KEY=<restricted browser key>` for the route map
+- `GEOAPIFY_API_KEY` and/or `TOMTOM_API_KEY` for server-side routing
+
+Do not set `VITE_API_BASE_URL` for a same-origin deployment; production builds
+use the current site origin by default. Never put server-side provider keys in
+`VITE_` variables. Add any production and preview domains that need cross-origin
+access to `CORS_ORIGINS`.
+
+Apply database migrations to the configured PostgreSQL database before serving
+traffic:
+
+```sh
+python -m pip install -e .
+python -m alembic upgrade head
+```
+
+Then deploy through the Vercel Git integration or run `npx vercel --prod`.
+`/health/live` checks the function, and `/health/ready` also checks its database.
+
+Vercel Functions use ephemeral instances, so SQLite is not suitable for deployed
+data. Historical replay work currently runs in an in-process background worker;
+it is not durable across serverless suspensions and needs an external job queue
+for reliable production processing. The authentication and tenant-authorization
+scaffolding documented above is also not production-grade.
+
 ### Live ESP32 temperature bridge
 
 The dashboard reads live temperature from `GET /v1/telemetry/live`. Connect the

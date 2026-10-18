@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -36,7 +37,8 @@ async def lifespan(_: FastAPI):
     if settings.auto_create_schema:
         async with engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)
-    schedule_default_route_warmup()
+    if not settings.environment.lower().startswith("production"):
+        schedule_default_route_warmup()
     yield
     await shutdown_workers()
     await engine.dispose()
@@ -79,7 +81,6 @@ async def ready() -> dict[str, str]:
 
 
 @app.get("/live", tags=["dashboard"])
-@app.get("/dashboard", tags=["dashboard"])
 @app.get("/gateway", tags=["dashboard"])
 async def live_sensor_dashboard(request: Request):
     from pathlib import Path
@@ -121,5 +122,10 @@ async def live_sensor_dashboard(request: Request):
     return HTMLResponse("<h3>Dashboard HTML not found</h3>", status_code=404)
 
 
+if not settings.environment.lower().startswith("production"):
+    app.add_api_route("/dashboard", live_sensor_dashboard, methods=["GET"], tags=["dashboard"])
 
+frontend_dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+if frontend_dist.is_dir():
+    app.frontend("/", directory=frontend_dist, fallback="index.html")
 

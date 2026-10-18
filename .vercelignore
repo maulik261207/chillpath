@@ -1,0 +1,12 @@
+.venv/
+.env*
+frontend/node_modules/
+frontend/.env*
+datasets/
+firmware/
+tests/
+*.db
+*.sqlite
+*.sqlite3
+data/*.graphml
+data/*.osm
